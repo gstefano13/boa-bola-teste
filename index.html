@@ -3707,6 +3707,13 @@ sb.auth.onAuthStateChange((evento, session) => {
     if (session && (!app.user || app.user.id !== session.user.id)) entrar(session.user);
     else if (!session && (app.user || evento === "INITIAL_SESSION")) {
       Object.assign(app, vazio());
+      // site de testes: sem tela de login. Entra sozinho (usuário anônimo) como presidente da pelada de teste
+      if (!OFICIAL) {
+        gravar("convite", "TESTE8-PRES");
+        sb.auth.signInAnonymously({ options: { data: { nome: "Presidente Teste", apelido: "Presida", guia_visto: true } } })
+          .then(r => { if (r.error) view.innerHTML = `<section class="card"><div class="empty">Não deu pra entrar no teste: ${esc(traduz(r.error))}</div></section>`; });
+        return;
+      }
       state.login = ler("convite") ? "codigo" : ler("email") ? "senha" : state.login;
       if (!state.loginEmail) state.loginEmail = ler("email") || "";
       route();
