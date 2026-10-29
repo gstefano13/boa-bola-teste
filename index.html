@@ -41,6 +41,10 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .me-chip{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:999px;padding:4px 12px 4px 4px;font-size:14px;font-weight:500;box-shadow:var(--shadow);color:inherit;text-decoration:none}
 .me-chip:empty{display:none}
 .me-wrap{position:relative}
+.barra-fantasma{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:#1F1B2E;color:#fff;border-radius:16px;padding:10px 12px;margin-bottom:14px;font-size:13px}
+.barra-fantasma:empty{display:none}
+.barra-fantasma span{flex:1 1 auto;min-width:0}
+.barra-fantasma .select-pill{max-width:100%}
 .faixa-teste{position:sticky;top:0;z-index:50;background:#F59E0B;color:#0E0E0E;text-align:center;font-size:12px;font-weight:600;padding:5px 12px;letter-spacing:.02em}
 .menu-perfil{display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:35;min-width:220px;max-width:calc(100vw - 32px);background:var(--card);border-radius:16px;padding:6px;box-shadow:0 14px 34px -12px rgba(0,0,0,.35);animation:sobe .18s ease both}
 .menu-perfil.on{display:block}
@@ -396,6 +400,7 @@ button.pill{font:inherit;font-size:12.5px;font-weight:500;border:0;cursor:pointe
     </div>
   </header>
 
+  <div class="barra-fantasma" id="barraFantasma"></div>
   <main class="grid" id="view">
     <section class="card"><div class="empty">Carregando…</div></section>
   </main>
@@ -424,16 +429,31 @@ if (!SUPABASE_URL) {
   throw new Error("Banco de testes não configurado");
 }
 if (!OFICIAL) document.body.insertAdjacentHTML("afterbegin", `<div class="faixa-teste">Ambiente de testes · banco de testes</div>`);
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+const sbReal = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
+// Modo fantasma (só o dev): vê qualquer pelada como um jogador, sem gravar nada.
+// Toda escrita no banco é barrada aqui, antes de sair do aparelho; leituras passam normal.
+const LEITURAS = new Set(["proximo_jogo", "lista_do_jogo", "medias"]);
+const SO_OLHAR = { message: "Modo fantasma: aqui é só pra olhar, nada é gravado." };
+const barrado = new Proxy(function(){}, { get: (_, k) => k === "then" ? ok => ok({ data: null, error: SO_OLHAR }) : () => barrado });
+const sb = new Proxy(sbReal, { get(alvo, k){
+  if (k === "rpc") return (nome, args) => app.fantasma && !LEITURAS.has(nome) ? barrado : alvo.rpc(nome, args);
+  if (k === "from") return tabela => {
+    const q = alvo.from(tabela);
+    return !app.fantasma ? q : new Proxy(q, { get: (qq, m) => ["insert", "update", "upsert", "delete"].includes(m) ? () => barrado
+      : typeof qq[m] === "function" ? qq[m].bind(qq) : qq[m] });
+  };
+  const v = alvo[k];
+  return typeof v === "function" ? v.bind(alvo) : v;
+} });
 
 /* ===================== ESTADO =====================
    3 níveis de acesso:
    - dev (administrador da plataforma): vê e altera todas as peladas
    - presidente: altera a própria pelada
    - jogador: vê os próprios números, vota e acompanha os rankings */
-const vazio = () => ({ user: null, perfil: null, dev: false, modoDev: false, patrocinio: {},
+const vazio = () => ({ user: null, perfil: null, dev: false, modoDev: false, fantasma: false, realUser: null, patrocinio: {},
   peladas: [], todas: [], membrosTodas: [], usuarios: [], global: null,
   pelada: null, membro: null, membros: [], partidas: [], gols: [], presencas: [], lances: [], medias: [], meusVotos: [], emails: new Map(), jogo: null, lista: [], confirmacoes: [], timesJogo: [], confrontos: [] });
 const app = vazio();
@@ -483,7 +503,7 @@ const avatarDe = id => { const m = membroDe(id); return avatar(m ? m.jogadores.n
 // perfil criado antes da pessoa ter conta: vira conta quando ela se cadastrar com o e-mail ligado a ele
 const rotuloMembro = m => `${cap(m.tipo)}${m.posicao ? ` · ${m.posicao}` : ""}${m.papel === "presidente" ? " · presidente" : ""}${m.jogadores.pendente ? " · aguardando cadastro" : ""}`;
 const nomeExibido = () => app.perfil.apelido || app.perfil.nome.split(" ")[0] || "Craque";
-const souPresidente = () => app.modoDev || (app.membro && app.membro.papel === "presidente");
+const souPresidente = () => !app.fantasma && (app.modoDev || (app.membro && app.membro.papel === "presidente"));
 const hora = h => { const m = /^(\d{1,2})[:h](\d{2})?$/.exec((h || "").trim()); return m ? `${Number(m[1])}h${m[2] && m[2] !== "00" ? m[2] : ""}` : h; };
 const quando = p => [p.dia_semana && (p.dia_semana + (p.horario ? `, ${hora(p.horario)}` : "")), p.local].filter(Boolean).join(" · ");
 
@@ -649,7 +669,7 @@ async function carregarTodas(){
 
 async function abrirPelada(id){
   app.pelada = app.peladas.find(p => p.id === id) || app.todas.find(p => p.id === id);
-  if (!app.modoDev) gravar("pelada", id);
+  if (!app.modoDev && !app.fantasma) gravar("pelada", id);
   state.pos = null; state.editando = null; state.editMetrica = null; state.addJogador = false; state.verTodosJog = false;
   await carregar();
   route();
@@ -769,11 +789,26 @@ function renderMenuPerfil(){
   if (!aberto) { el.innerHTML = ""; return; }
   el.innerHTML = `
     <div class="quem"><b>${esc(app.perfil.nome || nomeExibido())}</b><span>${esc(app.user.email || "")}</span></div>
-    ${app.modoDev ? `<button role="menuitem" data-act="irPara" data-hash="ajustes">Ajustes</button>`
+    ${app.fantasma ? `<button role="menuitem" data-act="sairFantasma">👻 Sair do modo fantasma</button>` : ""}
+    ${app.fantasma ? "" : app.modoDev ? `<button role="menuitem" data-act="irPara" data-hash="ajustes">Ajustes</button>`
       : app.pelada ? `<button role="menuitem" data-act="irPara" data-hash="pelada">Minha pelada</button>` : ""}
-    ${!app.modoDev && (app.peladas.length > 1 || app.dev) ? `<button role="menuitem" data-act="trocar">Trocar de pelada</button>` : ""}
-    ${app.dev && !app.modoDev ? `<button role="menuitem" data-act="painel">Painel do dev</button>` : ""}
+    ${!app.modoDev && !app.fantasma && (app.peladas.length > 1 || app.dev) ? `<button role="menuitem" data-act="trocar">Trocar de pelada</button>` : ""}
+    ${app.dev && !app.modoDev && !app.fantasma ? `<button role="menuitem" data-act="painel">Painel do dev</button>` : ""}
     <button class="sair" role="menuitem" data-act="sair">Sair da conta</button>`;
+}
+
+/* ===================== MODO FANTASMA =====================
+   Só o dev: abre qualquer pelada vendo exatamente o que um jogador vê, sem gravar nada. */
+function renderBarraFantasma(){
+  const el = document.getElementById("barraFantasma");
+  if (!app.fantasma || !app.pelada) { el.innerHTML = ""; return; }
+  const membros = [...app.membros].sort((a, b) => nomeDe(a.jogador_id).localeCompare(nomeDe(b.jogador_id), "pt-BR"));
+  el.innerHTML = `
+    <span>👻 <b>Modo fantasma</b> · ${esc(app.pelada.nome)} · só olhando, como:</span>
+    <select class="select-pill" data-change="fantasmaJogador" aria-label="Ver a pelada como qual jogador">
+      ${membros.map(m => `<option value="${m.jogador_id}" ${m.jogador_id === app.user.id ? "selected" : ""}>${esc(nomeDe(m.jogador_id))}${m.papel === "presidente" ? " (presidente)" : ""}</option>`).join("")}
+    </select>
+    <button class="btn sm white" data-act="sairFantasma">Sair do fantasma</button>`;
 }
 
 /* ===================== ROTAS ===================== */
@@ -783,6 +818,7 @@ function route(manterScroll){
   chip.innerHTML = app.perfil ? `${avatar(app.perfil.nome, app.perfil.foto_url)}${esc(nomeExibido())}` : "";
   chip.href = app.modoDev ? "#ajustes" : "#pelada";
   renderMenuPerfil();
+  renderBarraFantasma();
   view.className = "grid";
   let itens = [], v;
   if (!app.user) renderLogin();
@@ -1201,8 +1237,9 @@ async function carregarCartola(){
   ])).map(ok);
   let meuTime = null;
   if (app.membro && !app.modoDev && app.pelada.cartola_ativo) {
-    meuTime = ok(await sb.rpc("cartola_meu_time", { p }));
-    if (!times.some(t => t.jogador_id === meuTime.jogador_id)) times.push(meuTime);
+    // fantasma não cria time: só mostra o do jogador que está sendo visto (se ele tiver)
+    meuTime = app.fantasma ? times.find(t => t.jogador_id === app.user.id) || null : ok(await sb.rpc("cartola_meu_time", { p }));
+    if (meuTime && !times.some(t => t.jogador_id === meuTime.jogador_id)) times.push(meuTime);
   }
   app.cartola = { regras, rodadas, times, escalacoes, scouts, resultados, pontosTime, meuTime };
 }
@@ -2068,7 +2105,7 @@ const cardGuia = () => `
 // Confirmar: aparece uma vez por sessão. Votar: aparece sempre que houver alguém da lista sem o seu voto
 // que ainda não apareceu no pop-up desde que o app foi aberto (ou voltou pra tela).
 function popupAutomatico(){
-  if (!app.user || app.modoDev || !app.pelada || !app.membro || state.modal) return;
+  if (!app.user || app.modoDev || app.fantasma || !app.pelada || !app.membro || state.modal) return;
   if (listaStatus() !== "aberta") return;
   if (!confDe(app.user.id)) {
     if (state.modalVisto) return;
@@ -2085,7 +2122,7 @@ function popupAutomatico(){
 }
 // lista aberta: confere a cada minuto e quando o app volta pra tela se alguém novo confirmou
 async function vigiarVotacao(voltou){
-  if (!app.user || app.modoDev || !app.pelada || !app.membro || listaStatus() !== "aberta" || document.hidden) return;
+  if (!app.user || app.modoDev || app.fantasma || !app.pelada || !app.membro || listaStatus() !== "aberta" || document.hidden) return;
   try { await atualizarVotacao(); } catch (e) { return; }
   if (voltou) state.votosVistos.clear();
   const digitando = ["INPUT", "SELECT", "TEXTAREA"].includes((document.activeElement || {}).tagName);
@@ -3005,6 +3042,7 @@ function renderListaPeladas(){
           ${avatar(p.nome, null, p.status === "inativa")}
           <div class="who"><b>${esc(p.nome)}</b><span>Código <span class="mono">${esc(p.codigo_convite)}</span> · ${plural(n, "jogador", "jogadores")}</span></div>
           <div class="meta"><span class="pill ${p.status === "ativa" ? "lime" : p.status === "pausada" ? "soft" : "off"}">${STATUS[p.status]}</span><small>Criada em ${dataBr(p.criado_em)}</small></div>
+          <button class="btn ghost sm" data-act="fantasma" data-id="${p.id}" title="Ver como jogador, sem gravar nada">👻 Ver como jogador</button>
         </li>`;
       }).join("")}
     </ul>` : `<div class="empty">${app.todas.length ? "Nenhuma pelada encontrada." : "Nenhuma pelada cadastrada ainda.<br>Crie a primeira em “+ Nova pelada”."}</div>`}
@@ -3084,9 +3122,23 @@ const ACOES = {
   login: el => { state.login = el.dataset.modo; if (el.dataset.modo === "senha") state.loginPelada = ""; renderLogin(); },
   abrir: el => run(() => abrirPelada(el.dataset.id)),
   abrirDev: el => run(async () => { location.hash = "pelada"; await abrirPelada(el.dataset.id); }),
-  trocar: () => run(async () => { app.pelada = null; gravar("pelada", null); await carregarPeladas(); route(); }),
-  painel: () => run(async () => { app.modoDev = true; app.pelada = null; await carregarTodas(); location.hash = "peladas"; route(); }),
+  trocar: () => app.fantasma ? ACOES.painel() : run(async () => { app.pelada = null; gravar("pelada", null); await carregarPeladas(); route(); }),
+  painel: () => run(async () => {
+    if (app.fantasma) { app.user = app.realUser; app.realUser = null; app.fantasma = false; state.modal = null; }
+    app.modoDev = true; app.pelada = null; await carregarTodas(); location.hash = "peladas"; route(); }),
   sair: () => run(async () => { ok(await sb.auth.signOut()); }),
+  // entra como fantasma: começa vendo como o primeiro mensalista da pelada
+  fantasma: el => run(async () => {
+    const membros = ok(await sb.from("membros").select("jogador_id, tipo").eq("pelada_id", el.dataset.id));
+    if (!membros.length) return aviso("Essa pelada ainda não tem jogadores pra ver.");
+    const alvo = (membros.find(m => m.tipo === "mensalista") || membros[0]).jogador_id;
+    app.realUser = app.user; app.fantasma = true; app.modoDev = false;
+    app.user = { ...app.realUser, id: alvo };
+    history.replaceState(null, "", "#inicio");
+    await abrirPelada(el.dataset.id);
+    aviso("Modo fantasma: você vê o que o jogador vê. Nada é gravado.");
+  }),
+  sairFantasma: () => ACOES.painel(),
   menuPerfil: () => { state.menuPerfil = !state.menuPerfil; renderMenuPerfil(); },
   irPara: el => { location.hash = el.dataset.hash; },
   copiar: () => run(async () => { await navigator.clipboard.writeText(linkConvite()); aviso("Link de convite copiado!"); }),
@@ -3466,6 +3518,12 @@ async function mudarMembro(jogador, campos){
 }
 
 const MUDANCAS = {
+  fantasmaJogador: el => run(async () => {
+    app.user = { ...app.realUser, id: el.value };
+    await carregar();
+    route();
+    aviso(`Vendo como ${nomeDe(el.value)}`);
+  }),
   peso: el => run(async () => { await salvarPelada({ peso_votacao: Number(el.value) }); }),
   mercOrdem: el => { state.mercOrdem = el.value; renderListaMerc(); },
   pontRodada: el => { state.pontRodada = el.value; route(true); },
@@ -3704,7 +3762,7 @@ if (location.hash.startsWith("#convite=")) {
 sb.auth.onAuthStateChange((evento, session) => {
   // fora do callback: o supabase-js não deixa chamar o banco direto aqui dentro
   setTimeout(() => {
-    if (session && (!app.user || app.user.id !== session.user.id)) entrar(session.user);
+    if (session && (!app.user || (app.realUser || app.user).id !== session.user.id)) entrar(session.user);
     else if (!session && (app.user || evento === "INITIAL_SESSION")) {
       Object.assign(app, vazio());
       // site de testes: sem tela de login. Entra sozinho (usuário anônimo) como presidente da pelada de teste
