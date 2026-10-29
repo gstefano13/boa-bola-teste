@@ -41,6 +41,43 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .me-chip{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:999px;padding:4px 12px 4px 4px;font-size:14px;font-weight:500;box-shadow:var(--shadow);color:inherit;text-decoration:none}
 .me-chip:empty{display:none}
 .me-wrap{position:relative}
+/* painel de uso (dev) */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;margin-top:14px}
+.kpi{background:var(--soft);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;min-width:0}
+.kpi b{display:block;font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.03em;line-height:1.1}
+.kpi span{display:block;font-size:13px;color:var(--ink);margin-top:4px}
+.kpi small{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.35}
+.eixo-y{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:12px}
+.barras{display:flex;align-items:flex-end;gap:2px;height:140px;border-bottom:1px solid var(--line);margin-top:4px}
+.barra{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;outline:none}
+.barra i{display:block;width:100%;background:#4C8212;border-radius:4px 4px 0 0}
+.barra:hover i,.barra:focus i{background:#234406}
+.eixo-x{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:6px}
+.hbarras{list-style:none;margin-top:10px}
+.hbarras li{display:grid;grid-template-columns:minmax(0,9.5em) minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 0;outline:none}
+.hbarras .r{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbarras .t{height:10px;background:var(--soft);border-radius:4px;overflow:hidden}
+.hbarras .t i{display:block;height:100%;background:#4C8212;border-radius:0 4px 4px 0}
+.hbarras li:hover .t i,.hbarras li:focus .t i{background:#234406}
+.hbarras b{font-family:var(--mono);font-size:13px;font-weight:500;min-width:2.5em;text-align:right}
+.calor{display:grid;grid-template-columns:2.4em repeat(24,minmax(0,1fr));gap:2px;margin-top:14px;align-items:center}
+.calor i{display:block;aspect-ratio:1;border-radius:3px;outline:none}
+.calor i:hover,.calor i:focus{box-shadow:0 0 0 2px var(--ink)}
+.calor .dl{font-size:11px;color:var(--ink-2)}
+.calor .hl{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);white-space:nowrap}
+.legenda-calor{display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3);margin-top:10px}
+.legenda-calor i{width:14px;height:14px;border-radius:3px;display:inline-block}
+.legenda-calor span{margin:0 4px}
+.mapa-uso{height:320px;border-radius:var(--r-md);overflow:hidden;margin-top:12px;background:var(--soft);border:1px solid var(--line)}
+.mapa-uso .empty{padding-top:120px}
+.painel-uso>*{min-width:0}
+.tabela-rolar{overflow-x:auto;margin-top:10px;max-width:100%}
+.tabela{width:100%;border-collapse:collapse;font-size:13px}
+.tabela th{text-align:left;font-weight:500;color:var(--ink-2);font-size:12px;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+.tabela td{padding:9px 10px 9px 0;border-bottom:1px solid var(--line);font-family:var(--mono);white-space:nowrap}
+.tabela td:first-child{font-family:inherit;white-space:normal;min-width:9em}
+.dica{position:fixed;z-index:60;background:var(--ink);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;pointer-events:none;max-width:260px;box-shadow:var(--shadow)}
+.dica[hidden]{display:none}
 .barra-fantasma{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:#1F1B2E;color:#fff;border-radius:16px;padding:10px 12px;margin-bottom:14px;font-size:13px}
 .barra-fantasma:empty{display:none}
 .barra-fantasma span{flex:1 1 auto;min-width:0}
@@ -408,6 +445,7 @@ button.pill{font:inherit;font-size:12.5px;font-weight:500;border:0;cursor:pointe
 
 <div class="toast" id="toast" role="status"></div>
 <div class="modal" id="modal" data-act="fecharModal"></div>
+<div class="dica" id="dica" role="tooltip" hidden></div>
 <nav class="nav" id="nav" aria-label="Navegação"></nav>
 
 <script>
@@ -461,7 +499,7 @@ const state = { periodo: "mes", stat: "gols", login: "codigo", loginEmail: "", l
   busca: "", filtro: "todas", verTodas: false, novaPelada: false, buscaUsu: "",
   buscaJog: "", filtroJog: "todos", verTodosJog: false, editando: null, addJogador: false, editMetrica: null,
   mercPos: "todos", mercBusca: "", mercOrdem: "media", mercTodos: false, pontRodada: null, faq: 0, renomear: false,
-  capitao: null, capitaoRodada: undefined, confirmEncerrar: false, editScout: null, ajustesAbertos: false, editarTime: false, formTime: null, modal: null, modalVisto: false, pos: null, verPartidas: false, menuPerfil: false, votosVistos: new Set(), guiaPasso: 0, votarIds: [], troca: null };
+  capitao: null, capitaoRodada: undefined, confirmEncerrar: false, editScout: null, ajustesAbertos: false, editarTime: false, formTime: null, modal: null, modalVisto: false, pos: null, verPartidas: false, menuPerfil: false, dashDias: 30, votosVistos: new Set(), guiaPasso: 0, votarIds: [], troca: null };
 
 /* ===================== REGRAS ===================== */
 const CHUTEIRAS = [
@@ -512,12 +550,13 @@ const ICONES = {
   pessoas: `<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/>`,
   barras: `<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
   agenda: `<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
+  grafico: `<path d="M3 3v17a1 1 0 0 0 1 1h17"/><path d="m7 15 4-5 3 3 5-7"/>`,
   estrela: `<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>`
 };
 const NAV_JOGADOR = [["inicio", "Início", "casa"], ["jogadores", "Jogadores", "pessoas"], ["rankings", "Rankings", "barras"], ["pelada", "Pelada", "agenda"]];
 const navJogador = () => app.pelada && app.pelada.cartola_ativo
   ? [...NAV_JOGADOR.slice(0, 3), ["cartola", "Cartola", "estrela"], NAV_JOGADOR[3]] : NAV_JOGADOR;
-const NAV_DEV = [["peladas", "Peladas", "casa"], ["usuarios", "Usuários", "pessoas"], ["rankings", "Rankings", "barras"], ["ajustes", "Ajustes", "agenda"]];
+const NAV_DEV = [["peladas", "Peladas", "casa"], ["dashboard", "Painel", "grafico"], ["usuarios", "Usuários", "pessoas"], ["rankings", "Rankings", "barras"], ["ajustes", "Ajustes", "agenda"]];
 const LUPA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
 
 /* ===================== POTES =====================
@@ -823,7 +862,7 @@ function route(manterScroll){
   let itens = [], v;
   if (!app.user) renderLogin();
   else if (app.modoDev) {
-    const views = { peladas: renderPeladasDev, pelada: app.pelada ? renderPelada : renderPeladasDev, usuarios: renderUsuarios, rankings: renderRankingsDev, ajustes: renderAjustes };
+    const views = { peladas: renderPeladasDev, pelada: app.pelada ? renderPelada : renderPeladasDev, dashboard: renderDashboard, usuarios: renderUsuarios, rankings: renderRankingsDev, ajustes: renderAjustes };
     if (app.pelada) Object.assign(views, { times: renderTimes, pospelada: renderPosPelada });
     // dev vê o Cartola da pelada aberta em modo organizador (sem time próprio)
     if (app.pelada) Object.assign(views, { cartola: renderCartola, mercado: renderMercado, liga: renderLiga, pontuacao: renderPontuacao, regras: renderRegras });
@@ -839,6 +878,7 @@ function route(manterScroll){
     v = views[location.hash.slice(1)] ? location.hash.slice(1) : "inicio";
     itens = navJogador();
     views[v]();
+    registrarAcesso(v);
     if (["mercado", "liga", "pontuacao", "regras"].includes(v)) v = "cartola";
     if (v === "times" || v === "pospelada") v = "pelada";
   }
@@ -3050,6 +3090,201 @@ function renderListaPeladas(){
       ${todas.length > 6 ? `<button data-act="verTodas">${state.verTodas ? "Ver menos" : "Ver todas →"}</button>` : ""}</div>`;
 }
 
+/* ===================== USO DO APP =====================
+   Cada tela aberta vira uma linha em "acessos" (quem, pelada, tela, aparelho, cidade aproximada pelo IP).
+   O dev e o modo fantasma não contam. Falhar aqui nunca atrapalha o app. */
+let ultimaTela = { tela: null, t: 0 };
+const aparelho = () => { const u = navigator.userAgent; return /iphone|ipad|ipod/i.test(u) ? "iphone" : /android/i.test(u) ? "android" : /windows|macintosh|linux|cros/i.test(u) ? "computador" : "outro"; };
+const appInstalado = () => !!((window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone);
+// cidade aproximada pelo IP, 1 consulta por dia por aparelho
+async function cidadeDoAparelho(){
+  try { const c = JSON.parse(ler("geo") || "null"); if (c && c.dia === hoje()) return c.loc; } catch {}
+  try {
+    const g = await (await fetch("https://get.geojs.io/v1/ip/geo.json")).json();
+    const loc = { cidade: (g.city || "").slice(0, 80) || null, estado: (g.region || "").slice(0, 80) || null, pais: (g.country_code || "").slice(0, 3) || null,
+      lat: g.latitude ? Number(g.latitude) : null, lon: g.longitude ? Number(g.longitude) : null };
+    gravar("geo", JSON.stringify({ dia: hoje(), loc }));
+    return loc;
+  } catch { return {}; }
+}
+function registrarAcesso(tela){
+  if (!app.user || app.dev || app.fantasma || !tela) return;
+  const agora = Date.now();
+  if (ultimaTela.tela === tela && agora - ultimaTela.t < 5 * 60e3) return;   // a mesma tela de novo em 5 min não conta
+  ultimaTela = { tela, t: agora };
+  const linha = { jogador_id: app.user.id, pelada_id: app.pelada ? app.pelada.id : null, tela, dispositivo: aparelho(), instalado: appInstalado() };
+  cidadeDoAparelho().then(loc => sb.from("acessos").insert({ ...linha, ...loc })).then(() => {}, () => {});
+}
+
+/* ===================== DEV · PAINEL DE USO ===================== */
+const NOME_TELA = { inicio: "Início", jogadores: "Jogadores", rankings: "Rankings", pelada: "Pelada", times: "Times da noite", cartola: "Cartola",
+  mercado: "Mercado", liga: "Liga", pontuacao: "Pontuação", regras: "Regras", pospelada: "Registrar pelada" };
+const NOME_APARELHO = { iphone: "iPhone", android: "Android", computador: "Computador", outro: "Outro" };
+const RAMPA_USO = ["#86BD3F", "#65A01F", "#4C8212", "#36640A", "#234406"];   // um tom só, claro → escuro (validado)
+const num = n => Number(n || 0).toLocaleString("pt-BR");
+const pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : "–";
+const diaSemana = s => DIAS_CURTOS[new Date(s + "T12:00").getDay()];
+
+const kpi = (valor, rotulo, nota) => `<div class="kpi"><b>${valor}</b><span>${rotulo}</span>${nota ? `<small>${nota}</small>` : ""}</div>`;
+
+// barras verticais por dia, uma série só (o título diz o que é)
+function barrasDia(lista, campo, dica){
+  const max = Math.max(1, ...lista.map(x => x[campo]));
+  return `
+    <div class="eixo-y">${num(max)}</div>
+    <div class="barras">${lista.map(x => `<div class="barra" tabindex="0" data-dica="${esc(dica(x))}"><i style="height:${x[campo] ? Math.max(3, 100 * x[campo] / max) : 0}%"></i></div>`).join("")}</div>
+    <div class="eixo-x"><span>${dataCurta(lista[0].dia)}</span>${lista.length > 2 ? `<span>${dataCurta(lista[Math.floor(lista.length / 2)].dia)}</span>` : ""}<span>${dataCurta(lista[lista.length - 1].dia)}</span></div>`;
+}
+
+// barras horizontais com o número ao lado
+function barrasH(itens){
+  const max = Math.max(1, ...itens.map(i => i.valor));
+  return `<ul class="hbarras">${itens.map(i => `
+    <li tabindex="0" data-dica="${esc(i.dica)}"><span class="r">${esc(i.rotulo)}</span><span class="t"><i style="width:${Math.max(i.valor ? 2 : 0, 100 * i.valor / max)}%"></i></span><b>${num(i.valor)}</b></li>`).join("")}</ul>`;
+}
+
+// mapa de calor dia da semana × hora (horário de Brasília)
+function calorHorario(celulas){
+  const m = new Map(celulas.map(c => [c.d * 24 + c.h, c]));
+  const max = Math.max(1, ...celulas.map(c => c.acessos));
+  const cor = n => n ? RAMPA_USO[Math.min(RAMPA_USO.length - 1, Math.ceil(n / max * RAMPA_USO.length) - 1)] : "#F1F2EE";
+  return `
+    <div class="calor" role="img" aria-label="Acessos por dia da semana e hora">
+      ${DIAS_CURTOS.map((nome, d) => `<span class="dl">${nome}</span>${Array.from({ length: 24 }, (_, h) => {
+        const c = m.get(d * 24 + h) || { acessos: 0, pessoas: 0 };
+        return `<i tabindex="0" style="background:${cor(c.acessos)}" data-dica="${nome} ${h}h · ${plural(c.acessos, "acesso", "acessos")} · ${plural(c.pessoas, "pessoa", "pessoas")}"></i>`;
+      }).join("")}`).join("")}
+      <span></span>${Array.from({ length: 24 }, (_, h) => `<span class="hl">${h % 3 ? "" : h + "h"}</span>`).join("")}
+    </div>
+    <div class="legenda-calor"><span>nenhum</span><i style="background:#F1F2EE"></i><span>menos</span>${RAMPA_USO.map(c => `<i style="background:${c}"></i>`).join("")}<span>mais</span></div>`;
+}
+
+async function renderDashboard(){
+  view.className = "grid solo wide painel-uso";
+  view.innerHTML = `<section class="card fade"><div class="empty">Carregando o painel…</div></section>`;
+  let p;
+  try { p = ok(await sb.rpc("painel_uso", { dias: state.dashDias })); }
+  catch (e) { view.innerHTML = `<section class="card"><div class="empty">${esc(traduz(e))}</div></section>`; return; }
+  if (location.hash !== "#dashboard") return;   // saiu da tela enquanto carregava
+  const t = p.totais, a = p.ativos, semDados = !t.acessos;
+  view.innerHTML = `
+    <section class="card fade">
+      <div class="card-head" style="margin-bottom:0">
+        <div><div class="eyebrow">Só você vê</div><div class="h2">Painel de uso</div></div>
+      </div>
+      <div class="seg" style="margin-top:12px">${[7, 30, 90].map(n => `<button class="${state.dashDias === n ? "on" : ""}" data-act="dashDias" data-valor="${n}">${n} dias</button>`).join("")}</div>
+      <p class="note">De ${dataBr(p.desde)} a ${dataBr(p.ate)}, horário de Brasília. Seus acessos de dev e o modo fantasma não entram na conta.</p>
+      ${semDados ? `<p class="hint">O registro de acessos começa agora: uso, horários, cidades e aparelhos vão aparecendo conforme as pessoas abrem o app. Contas, peladas e partidas já mostram o histórico.</p>` : ""}
+      <div class="kpis">
+        ${kpi(num(a.hoje), "Ativos hoje")}
+        ${kpi(num(a.d7), "Ativos em 7 dias")}
+        ${kpi(num(a.d30), "Ativos em 30 dias")}
+        ${kpi(pct(a.voltaram, a.semana_passada), "Voltaram nesta semana", `${num(a.voltaram)} de ${num(a.semana_passada)} da semana passada`)}
+        ${kpi(num(t.contas), "Contas criadas", `+${num(t.novas_contas)} no período · ${num(t.perfis_pendentes)} perfis esperando cadastro`)}
+        ${kpi(num(t.peladas_ativas), "Peladas ativas", `+${num(t.peladas_novas)} no período`)}
+        ${kpi(num(t.partidas), "Partidas no período", `${num(t.gols)} gols`)}
+        ${kpi(pct(p.instalado, t.pessoas), "Instalaram o app", `${num(p.instalado)} de ${num(t.pessoas)} que usaram`)}
+      </div>
+    </section>
+
+    <section class="card fade" style="animation-delay:.03s">
+      <div class="eyebrow">Uso por dia</div><div class="h2">Pessoas que abriram o app</div>
+      ${barrasDia(p.diario, "pessoas", x => `${diaSemana(x.dia)} ${dataCurta(x.dia)} · ${plural(x.pessoas, "pessoa", "pessoas")} · ${plural(x.acessos, "acesso", "acessos")}`)}
+    </section>
+
+    <section class="card fade" style="animation-delay:.05s">
+      <div class="eyebrow">Crescimento</div><div class="h2">Novas contas por dia</div>
+      ${barrasDia(p.diario, "novas", x => `${diaSemana(x.dia)} ${dataCurta(x.dia)} · ${plural(x.novas, "conta nova", "contas novas")}`)}
+    </section>
+
+    <section class="card fade" style="animation-delay:.07s">
+      <div class="eyebrow">Mapa de calor</div><div class="h2">Quando o pessoal usa</div>
+      <p class="note">Cada quadrado é uma hora da semana; quanto mais escuro, mais acessos.</p>
+      ${calorHorario(p.calor)}
+    </section>
+
+    <section class="card fade" style="animation-delay:.09s">
+      <div class="eyebrow">Mapa de calor</div><div class="h2">De onde o pessoal usa</div>
+      <p class="note">Cidade aproximada pela conexão de internet de cada aparelho.</p>
+      <div class="mapa-uso" id="mapaUso"></div>
+      ${p.cidades.length ? `<div class="lista-sub">Cidades <span>${plural(p.cidades.length, "cidade", "cidades")}</span></div>
+        ${barrasH(p.cidades.slice(0, 10).map(c => ({ rotulo: `${c.cidade}${c.estado ? ` · ${c.estado}` : ""}`, valor: c.pessoas,
+          dica: `${c.cidade}: ${plural(c.pessoas, "pessoa", "pessoas")}, ${plural(c.acessos, "acesso", "acessos")}` })))}` : ""}
+    </section>
+
+    <section class="card fade" style="animation-delay:.11s">
+      <div class="eyebrow">O que mais usam</div><div class="h2">Telas mais abertas</div>
+      ${p.telas.length ? barrasH(p.telas.map(x => ({ rotulo: NOME_TELA[x.tela] || x.tela, valor: x.acessos, dica: `${NOME_TELA[x.tela] || x.tela}: ${plural(x.acessos, "acesso", "acessos")} de ${plural(x.pessoas, "pessoa", "pessoas")}` })))
+        : `<div class="empty">Ainda sem acessos registrados.</div>`}
+    </section>
+
+    <section class="card fade" style="animation-delay:.13s">
+      <div class="eyebrow">Por onde entram</div><div class="h2">Aparelhos</div>
+      ${p.aparelhos.length ? barrasH(p.aparelhos.map(x => ({ rotulo: NOME_APARELHO[x.dispositivo] || x.dispositivo, valor: x.pessoas, dica: `${NOME_APARELHO[x.dispositivo] || x.dispositivo}: ${plural(x.pessoas, "pessoa", "pessoas")}` })))
+        : `<div class="empty">Ainda sem acessos registrados.</div>`}
+    </section>
+
+    <section class="card fade" style="animation-delay:.15s">
+      <div class="eyebrow">Engajamento no período</div><div class="h2">O que o pessoal fez</div>
+      <div class="kpis">
+        ${kpi(num(t.confirmacoes), "Confirmações de presença")}
+        ${kpi(num(t.votos), "Votos dados")}
+        ${kpi(num(t.partidas), "Partidas registradas")}
+        ${kpi(num(t.gols), "Gols registrados")}
+      </div>
+    </section>
+
+    <section class="card fade" style="animation-delay:.17s">
+      <div class="eyebrow">Peladas</div><div class="h2">Quem mais usa</div>
+      <div class="tabela-rolar"><table class="tabela">
+        <thead><tr><th>Pelada</th><th>Jogadores</th><th>Ativos 7d</th><th>Acessos</th><th>Partidas</th><th>Última</th></tr></thead>
+        <tbody>${p.peladas.map(x => `<tr><td>${esc(x.nome)}</td><td>${num(x.jogadores)}</td><td>${num(x.ativos7)}</td><td>${num(x.acessos)}</td><td>${num(x.partidas)}</td><td>${x.ultima_partida ? dataCurta(x.ultima_partida) : "–"}</td></tr>`).join("")}</tbody>
+      </table></div>
+    </section>`;
+  desenharMapa(p.cidades);
+}
+
+// mapa com calor por cidade (Leaflet + OpenStreetMap), carregado só quando o painel abre
+let leafletPronto = null;
+const carregarScript = src => new Promise((ok, erro) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = erro; document.head.appendChild(s); });
+const carregarLeaflet = () => leafletPronto || (leafletPronto = (async () => {
+  document.head.insertAdjacentHTML("beforeend", `<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">`);
+  await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js");
+  await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js");
+})().catch(e => { leafletPronto = null; throw e; }));
+async function desenharMapa(cidades){
+  const el = document.getElementById("mapaUso");
+  if (!el) return;
+  const pontos = cidades.filter(c => c.lat != null && c.lon != null);
+  if (!pontos.length) { el.innerHTML = `<div class="empty">Ainda sem localização. Aparece aqui conforme as pessoas abrem o app.</div>`; return; }
+  try { await carregarLeaflet(); } catch { el.innerHTML = `<div class="empty">Não deu pra carregar o mapa agora.</div>`; return; }
+  if (!document.body.contains(el)) return;
+  try {
+  const mapa = L.map(el, { scrollWheelZoom: false });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
+  const max = Math.max(...pontos.map(c => c.pessoas));
+  L.heatLayer(pontos.map(c => [Number(c.lat), Number(c.lon), 0.35 + 0.65 * c.pessoas / max]),
+    { radius: 30, blur: 24, maxZoom: 10, gradient: { 0.3: RAMPA_USO[0], 0.6: RAMPA_USO[2], 1: RAMPA_USO[4] } }).addTo(mapa);
+  pontos.forEach(c => L.circleMarker([Number(c.lat), Number(c.lon)], { radius: 6, weight: 2, color: "#fff", fillColor: RAMPA_USO[4], fillOpacity: .95 })
+    .bindTooltip(`${esc(c.cidade)}${c.estado ? ` · ${esc(c.estado)}` : ""}: ${plural(c.pessoas, "pessoa", "pessoas")}, ${plural(c.acessos, "acesso", "acessos")}`).addTo(mapa));
+  mapa.fitBounds(L.latLngBounds(pontos.map(c => [Number(c.lat), Number(c.lon)])).pad(0.5), { maxZoom: 9 });
+  } catch (e) { console.error(e); el.innerHTML = `<div class="empty">Não deu pra desenhar o mapa agora.</div>`; }
+}
+
+// dica dos gráficos: passar o mouse, tocar ou focar com o teclado
+function mostrarDica(el){
+  const d = document.getElementById("dica");
+  if (!el || !el.dataset.dica) { d.hidden = true; return; }
+  d.textContent = el.dataset.dica;
+  d.hidden = false;
+  const r = el.getBoundingClientRect(), w = d.offsetWidth, h = d.offsetHeight;
+  d.style.left = `${Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8)}px`;
+  d.style.top = `${r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8}px`;
+}
+document.addEventListener("pointerover", e => mostrarDica(e.target.closest && e.target.closest("[data-dica]")));
+document.addEventListener("focusin", e => mostrarDica(e.target.closest && e.target.closest("[data-dica]")));
+window.addEventListener("scroll", () => { const d = document.getElementById("dica"); if (d) d.hidden = true; }, { passive: true });
+
 /* ===================== DEV · USUÁRIOS ===================== */
 async function renderUsuarios(){
   view.innerHTML = `<section class="card fade span2" id="cardUsu"><div class="empty">Carregando…</div></section>`;
@@ -3139,6 +3374,7 @@ const ACOES = {
     aviso("Modo fantasma: você vê o que o jogador vê. Nada é gravado.");
   }),
   sairFantasma: () => ACOES.painel(),
+  dashDias: el => { state.dashDias = Number(el.dataset.valor); renderDashboard(); },
   menuPerfil: () => { state.menuPerfil = !state.menuPerfil; renderMenuPerfil(); },
   irPara: el => { location.hash = el.dataset.hash; },
   copiar: () => run(async () => { await navigator.clipboard.writeText(linkConvite()); aviso("Link de convite copiado!"); }),
