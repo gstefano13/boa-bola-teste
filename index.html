@@ -149,6 +149,11 @@ button.pill{font:inherit;font-size:12.5px;font-weight:500;border:0;cursor:pointe
 .sponsor .who span{font-size:13px;color:var(--ink-2)}
 .sponsor .who small{font-size:12px;color:var(--ink-2)}
 
+/* popup comercial */
+.popup-img{display:block;width:100%;max-height:46vh;object-fit:cover;border-radius:14px;margin:12px 0 14px;background:var(--soft)}
+#popupPrevia{width:100%;min-height:96px;border-radius:14px;background:#F2F2F2;border:1px dashed #E0E0E0;display:grid;place-items:center;font-size:12px;color:var(--ink-3);overflow:hidden;margin-bottom:10px}
+#popupPrevia img{width:100%;max-height:220px;object-fit:cover;display:block}
+
 /* chuteira */
 .boot-top{display:flex;align-items:center;gap:14px}
 .boot-ico{width:56px;height:56px;border-radius:12px;display:grid;place-items:center;font-size:30px;flex:none}
@@ -505,7 +510,7 @@ const sb = new Proxy(sbReal, { get(alvo, k){
    - dev (administrador da plataforma): vê e altera todas as peladas
    - presidente: altera a própria pelada
    - jogador: vê os próprios números, vota e acompanha os rankings */
-const vazio = () => ({ user: null, perfil: null, dev: false, modoDev: false, fantasma: false, realUser: null, patrocinio: {},
+const vazio = () => ({ user: null, perfil: null, dev: false, modoDev: false, fantasma: false, realUser: null, patrocinio: {}, popup: {},
   peladas: [], todas: [], membrosTodas: [], usuarios: [], global: null,
   pelada: null, membro: null, membros: [], partidas: [], gols: [], presencas: [], lances: [], medias: [], meusVotos: [], emails: new Map(), jogo: null, lista: [], confirmacoes: [], timesJogo: [], confrontos: [] });
 const app = vazio();
@@ -674,11 +679,12 @@ async function entrar(user){
     const [perfil, devs, config] = (await Promise.all([
       sb.from("jogadores").select("*").eq("id", user.id).single(),
       sb.from("devs").select("jogador_id").eq("jogador_id", user.id),
-      sb.from("config").select("patrocinio").maybeSingle()
+      sb.from("config").select("*").maybeSingle()
     ])).map(ok);
     app.perfil = perfil;
     app.dev = devs.length > 0;
     app.patrocinio = (config && config.patrocinio) || {};
+    app.popup = (config && config.popup) || {};
     const convite = ler("convite");
     gravar("convite", null);
     // o dev não entra em pelada por código: ele vê todas pelo painel, sem virar jogador
@@ -2219,19 +2225,42 @@ const cardGuia = () => `
 // que ainda não apareceu no pop-up desde que o app foi aberto (ou voltou pra tela).
 function popupAutomatico(){
   if (!app.user || app.modoDev || app.fantasma || !app.pelada || !app.membro || state.modal) return;
-  if (listaStatus() !== "aberta") return;
-  if (!confDe(app.user.id)) {
-    if (state.modalVisto) return;
-    state.modal = "confirmar";
-    state.modalVisto = true;
-  } else {
-    const falta = faltaVotar();
-    if (!falta.some(id => !state.votosVistos.has(id))) return;
-    falta.forEach(id => state.votosVistos.add(id));
-    state.votarIds = falta;
-    state.modal = "votar";
+  if (listaStatus() === "aberta") {
+    if (!confDe(app.user.id)) {
+      if (!state.modalVisto) { state.modal = "confirmar"; state.modalVisto = true; return renderModal(); }
+    } else {
+      const falta = faltaVotar();
+      if (falta.some(id => !state.votosVistos.has(id))) {
+        falta.forEach(id => state.votosVistos.add(id));
+        state.votarIds = falta;
+        state.modal = "votar";
+        return renderModal();
+      }
+    }
   }
-  renderModal();
+  // lista e votação têm prioridade; o comercial entra quando não tem nada da pelada pendente
+  if (popupComercialDevido()) { gravar("popupVisto", String(Date.now())); state.modal = "comercial"; renderModal(); }
+}
+
+/* ===================== POPUP COMERCIAL =====================
+   Configurado pelo dev em Ajustes. Aparece no máximo 1 vez a cada 24 horas por aparelho
+   (o horário fica guardado no próprio aparelho). Nunca por cima do guia, da lista ou da votação. */
+const POPUP_INTERVALO = 24 * 60 * 60 * 1000;
+const popupPronto = () => { const p = app.popup || {}; return !!(p.ligado && (p.titulo || urlSegura(p.imagem))); };
+function popupComercialDevido(){
+  if (!popupPronto() || guiaPendente(app.user)) return false;
+  const visto = Number(ler("popupVisto")) || 0;
+  return Date.now() - visto >= POPUP_INTERVALO;
+}
+function corpoComercial(){
+  const p = app.popup || {}, img = urlSegura(p.imagem), url = urlSegura(p.url);
+  return `<button class="x" data-act="fecharModal" aria-label="Fechar">×</button>
+    <div class="eyebrow">${esc(p.selo || "Parceiro do Anotou")}</div>
+    ${img ? `<img class="popup-img" src="${esc(img)}" alt="${esc(p.titulo || "")}">` : ""}
+    ${p.titulo ? `<div class="h2">${esc(p.titulo)}</div>` : ""}
+    ${p.texto ? `<p class="note">${esc(p.texto)}</p>` : ""}
+    ${url ? `<div class="dois"><button class="btn ghost" data-act="fecharModal">Agora não</button><button class="btn" data-act="popupLink">${esc(p.botao || "Ver")}</button></div>`
+      : `<button class="btn block" data-act="fecharModal" style="margin-top:16px">Fechar</button>`}`;
 }
 // lista aberta: confere a cada minuto e quando o app volta pra tela se alguém novo confirmou
 async function vigiarVotacao(voltou){
@@ -2252,6 +2281,7 @@ function renderModal(){
   const el = document.getElementById("modal");
   const t = state.modal, j = app.jogo;
   if (t === "guia") { el.innerHTML = `<div class="sheet" data-act="nada" role="dialog" aria-modal="true" aria-label="Como funciona o Anotou">${corpoGuia()}</div>`; return; }
+  if (t === "comercial") { el.innerHTML = `<div class="sheet" data-act="nada" role="dialog" aria-modal="true" aria-label="${esc((app.popup || {}).titulo || "Parceiro do Anotou")}">${corpoComercial()}</div>`; return; }
   if (t === "timeAmigo") { el.innerHTML = `<div class="sheet" data-act="nada" role="dialog" aria-modal="true">${corpoTimeAmigo()}</div>`; return; }
   if (t === "resumoPos") {
     el.innerHTML = `<div class="sheet" data-act="nada" role="dialog" aria-modal="true">${corpoResumoPos()}</div>`;
@@ -3475,6 +3505,34 @@ function renderListaUsu(){
 }
 
 /* ===================== DEV · AJUSTES ===================== */
+function cardPopupAjustes(){
+  const p = app.popup || {};
+  return `
+    <section class="card fade" style="animation-delay:.03s">
+      <div class="eyebrow">Comercial</div><div class="h2">Popup do parceiro</div>
+      <p class="note">Aparece pra galera no máximo 1 vez a cada 24 horas em cada aparelho. Nunca por cima do guia, da lista ou da votação.</p>
+      <form data-form="popup">
+        <label class="setting" style="margin-top:14px;cursor:pointer">
+          <div><b>Popup ligado</b><span>${p.ligado ? "Aparecendo no site" : "Desligado"}</span></div>
+          <input type="checkbox" name="ligado" ${p.ligado ? "checked" : ""} style="width:22px;height:22px;accent-color:var(--ink)">
+        </label>
+        <div class="field"><span>Imagem</span>
+          <div id="popupPrevia">${urlSegura(p.imagem) ? `<img src="${esc(p.imagem)}" alt="">` : "Sem imagem"}</div>
+          <label class="btn sm ghost" style="cursor:pointer">Enviar imagem<input type="file" accept="image/png,image/jpeg,image/webp" data-change="popupArquivo" hidden></label>
+        </div>
+        <label class="field"><span>Ou cole o link da imagem</span><input class="input" name="imagem" type="url" value="${esc(p.imagem || "")}" placeholder="https://…/banner.png"></label>
+        <label class="field"><span>Selo</span><input class="input" name="selo" value="${esc(p.selo || "")}" placeholder="Parceiro do Anotou" maxlength="40"></label>
+        <label class="field"><span>Título</span><input class="input" name="titulo" value="${esc(p.titulo || "")}" placeholder="10% off na chuteira nova" maxlength="60"></label>
+        <label class="field"><span>Texto</span><input class="input" name="texto" value="${esc(p.texto || "")}" placeholder="Mostre o Anotou na loja e garanta o desconto" maxlength="160"></label>
+        <div class="two">
+          <label class="field"><span>Texto do botão</span><input class="input" name="botao" value="${esc(p.botao || "")}" placeholder="Ver" maxlength="24"></label>
+          <label class="field"><span>Link do botão</span><input class="input" name="url" type="url" value="${esc(p.url || "")}" placeholder="https://"></label>
+        </div>
+        <button class="btn block" style="margin-top:14px">Salvar popup</button>
+        <button type="button" class="btn ghost block" data-act="verPopup" style="margin-top:8px">Ver como fica</button>
+      </form>
+    </section>`;
+}
 function renderAjustes(){
   const p = app.patrocinio || {};
   view.innerHTML = `
@@ -3495,6 +3553,7 @@ function renderAjustes(){
         <button class="btn block">Salvar patrocinador</button>
       </form>
     </section>
+    ${cardPopupAjustes()}
     <section class="card fade" style="animation-delay:.05s">
       <div class="eyebrow">Conta</div><div class="h2">${esc(app.perfil.nome)}</div>
       <p class="note">Acesso de developer: você vê e altera todas as peladas, sem aparecer no elenco de nenhuma.</p>
@@ -3613,6 +3672,8 @@ const ACOES = {
     renderModal();
   }),
   fecharModal: () => { state.modal = null; renderModal(); route(true); },
+  popupLink: () => { const url = urlSegura((app.popup || {}).url); if (url) window.open(url, "_blank", "noopener"); state.modal = null; renderModal(); route(true); },
+  verPopup: () => { if (!popupPronto()) return aviso("Salve o popup ligado, com título ou imagem"); state.modal = "comercial"; renderModal(); },
   abrirGuia: () => abrirGuia(),
   guiaPasso: el => { state.guiaPasso = Math.max(0, state.guiaPasso + Number(el.dataset.delta)); renderModal(); },
   nada: () => {},
@@ -3943,6 +4004,27 @@ const MUDANCAS = {
   cartDia: el => run(async () => { await salvarPelada({ cartola_dia: Number(el.value) }); route(true); }),
   cartHora: el => run(async () => { await salvarPelada({ cartola_hora: Number(el.value) }); route(true); }),
   // logo do patrocinador: diminui pra no máximo 400px, sobe pro Storage e já salva no box
+  popupArquivo: el => run(async () => {
+    const arq = el.files[0];
+    el.value = "";
+    if (!arq) return;
+    aviso("Enviando imagem…");
+    const img = await createImageBitmap(arq);
+    const k = Math.min(1, 1080 / Math.max(img.width, img.height));
+    const c = Object.assign(document.createElement("canvas"), { width: Math.round(img.width * k), height: Math.round(img.height * k) });
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, "image/webp", .88));
+    const caminho = `popup-${Date.now()}.webp`;
+    ok(await sb.storage.from("patrocinio").upload(caminho, blob, { contentType: "image/webp" }));
+    const imagem = sb.storage.from("patrocinio").getPublicUrl(caminho).data.publicUrl;
+    const popup = { ...app.popup, imagem };
+    ok(await sb.from("config").update({ popup }).eq("id", 1));
+    app.popup = popup;
+    const campo = document.querySelector('[data-form="popup"] [name="imagem"]');
+    if (campo) campo.value = imagem;
+    document.getElementById("popupPrevia").innerHTML = `<img src="${esc(imagem)}" alt="">`;
+    aviso("Imagem salva");
+  }),
   logoArquivo: el => run(async () => {
     const arq = el.files[0];
     el.value = "";
@@ -4127,6 +4209,15 @@ const FORMS = {
     if (valor === padrao) delete troca[cod]; else troca[cod] = valor;
     state.editScout = null;
     await salvarPelada({ cartola_pontos: troca }); route(true);
+  }),
+  popup: (f, d) => run(async () => {
+    const campo = k => (d.get(k) || "").trim();
+    const popup = { ligado: d.get("ligado") === "on", selo: campo("selo"), titulo: campo("titulo"), texto: campo("texto"),
+      botao: campo("botao"), url: campo("url"), imagem: campo("imagem") };
+    ok(await sb.from("config").update({ popup }).eq("id", 1));
+    app.popup = popup;
+    aviso(popup.ligado ? "Popup salvo e ligado" : "Popup salvo, desligado");
+    route();
   }),
   patrocinio: (f, d) => run(async () => {
     const patrocinio = { nome: d.get("nome").trim(), texto: d.get("texto").trim(), url: d.get("url").trim(), logo: d.get("logo").trim() };
