@@ -222,6 +222,8 @@ button.pill{font:inherit;font-size:12.5px;font-weight:500;border:0;cursor:pointe
 .btn.block{width:100%;margin-top:18px;padding:15px 18px;font-size:15px;white-space:normal;text-align:center}
 .dois .btn{white-space:normal;text-align:center}
 .btn.ghost{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.btn.verde{background:var(--lime);color:var(--ink);font-weight:600}
+.btn.verde:disabled{opacity:.5}
 .btn.white{background:#fff;color:var(--ink);border:1px solid var(--line)}
 .btn.sm{padding:7px 12px;font-size:13px}
 .btn:disabled{opacity:.5;cursor:default}
@@ -273,6 +275,18 @@ button.pill{font:inherit;font-size:12.5px;font-weight:500;border:0;cursor:pointe
 .list li.voto .who{flex:1 1 0;min-width:0}
 .list li.voto .notas{flex:1 1 100%;gap:6px}
 .list li.voto .notas button{flex:1;width:auto;height:38px;font-size:15px}
+/* presidente: ranking da galera */
+.rk-nota{display:flex;align-items:center;gap:8px;flex:none;width:120px}
+.rk-nota .trilho{flex:1;height:6px;border-radius:999px;background:var(--soft);border:1px solid var(--line);overflow:hidden}
+.rk-nota .trilho i{display:block;height:100%;background:var(--lime);border-radius:999px}
+.rk-nota b{font-family:var(--mono);font-size:13px;font-weight:600;min-width:28px;text-align:right}
+.rk-pos{font-family:var(--mono);font-size:12px;color:var(--ink-3);width:18px;flex:none;text-align:right}
+/* presidente: votos da semana */
+.list li.voto-adm{flex-wrap:wrap;row-gap:8px}
+.list li.voto-adm .who{flex:1 1 0;min-width:0}
+.voto-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 100%}
+.voto-chips span{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--soft);border:1px solid var(--line);color:var(--ink-2)}
+.voto-chips span b{color:var(--ink);font-weight:600}
 .toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;z-index:30;box-shadow:var(--shadow);max-width:calc(100% - 32px);text-align:center}
 .toast:empty{display:none}
 
@@ -498,8 +512,8 @@ const app = vazio();
 const state = { periodo: "mes", stat: "gols", login: "codigo", loginEmail: "", loginPelada: "",
   busca: "", filtro: "todas", verTodas: false, novaPelada: false, buscaUsu: "",
   buscaJog: "", filtroJog: "todos", verTodosJog: false, editando: null, addJogador: false, editMetrica: null,
-  mercPos: "todos", mercBusca: "", mercOrdem: "media", mercTodos: false, pontRodada: null, faq: 0, renomear: false,
-  capitao: null, capitaoRodada: undefined, confirmEncerrar: false, editScout: null, ajustesAbertos: false, editarTime: false, formTime: null, modal: null, modalVisto: false, pos: null, verPartidas: false, menuPerfil: false, dashDias: 30, votosVistos: new Set(), guiaPasso: 0, votarIds: [], troca: null };
+  mercPos: "todos", mercBusca: "", mercOrdem: "media", mercTodos: false, pontRodada: null, ligaRodada: "geral", faq: 0, renomear: false,
+  capitao: null, capitaoRodada: undefined, confirmEncerrar: false, editScout: null, ajustesAbertos: false, editarTime: false, formTime: null, modal: null, modalVisto: false, pos: null, verPartidas: false, menuPerfil: false, dashDias: 30, votosVistos: new Set(), guiaPasso: 0, votarIds: [], troca: null, votosAdm: {}, votosPartida: null, votosModo: "recebidos", rankModo: "ranking" };
 
 /* ===================== REGRAS ===================== */
 const CHUTEIRAS = [
@@ -739,6 +753,7 @@ async function carregar(){
     sb.from("perfis_pendentes").select("jogador_id, email")   // só dev e presidente recebem
   ])).map(ok);
   Object.assign(app, { membros, partidas, gols, presencas, lances, medias, meusVotos });
+  state.votosAdm = {};
   await carregarLista();
   app.emails = new Map(pendentes.map(x => [x.jogador_id, x.email]));
   app.pelada = { ...pelada, papel: app.pelada.papel, sufixo: codPres.length ? codPres[0].sufixo : null };
@@ -773,6 +788,7 @@ async function atualizarVotacao(){
     tudo(() => sb.from("votos").select("partida_id, votado_id, nota").eq("pelada_id", p).eq("votante_id", app.user.id).order("id"))
   ])).map(ok);
   Object.assign(app, { partidas, meusVotos });
+  state.votosAdm = {};
   await carregarLista();
 }
 
@@ -981,7 +997,9 @@ function cardPatrocinio(){
 }
 
 // Mesmo lugar do Slide 01 em toda aba: logo abaixo do primeiro card
+const MOSTRAR_PATROCINIO = false;   // box do patrocinador desligado em todas as abas; true volta a mostrar
 function inserirPatrocinio(){
+  if (!MOSTRAR_PATROCINIO) return;
   if (!app.user || view.querySelector(".sponsor") || !view.firstElementChild) return;
   // depois do primeiro card, sem separar as sub-abas do conteúdo delas
   let alvo = view.firstElementChild;
@@ -1266,6 +1284,8 @@ const precoDe = id => Number((membroDe(id) || {}).preco || 0);
 
 async function carregarCartola(){
   const p = app.pelada.id;
+  // semana sem pelada computada: o banco encerra a rodada velha ("não teve pelada") quando a lista seguinte abre
+  if (app.pelada.cartola_ativo && !app.fantasma) { try { await sb.rpc("cartola_virar_semana", { p }); } catch (e) { console.warn(e); } }
   const [regras, rodadas, times, escalacoes, scouts, resultados, pontosTime] = (await Promise.all([
     sb.from("cartola_scouts_regras").select("*"),
     tudo(() => sb.from("cartola_rodadas").select("*").eq("pelada_id", p).order("numero")),
@@ -1286,10 +1306,14 @@ async function carregarCartola(){
 
 const cart = () => app.cartola || { regras: [], rodadas: [], times: [], escalacoes: [], scouts: [], resultados: [], pontosTime: [], meuTime: null };
 const rodadaAberta = () => [...cart().rodadas].reverse().find(r => r.status === "aberta") || null;
-// mercado abre à 0h do dia da pelada e fecha 1h antes do jogo (regra no banco, migração 017)
-const mercadoAbreEm = () => app.jogo ? new Date(`${app.jogo.data}T00:00:00-03:00`) : null;
-const mercadoFechaEm = () => app.jogo ? new Date(new Date(app.jogo.inicio) - 36e5) : null;
-const mercadoAberto = () => { const r = rodadaAberta(), a = mercadoAbreEm(), agora = new Date(); return !!r && !!a && agora >= a && agora < mercadoFechaEm(); };
+// mercado fica aberto da abertura da rodada até 1h antes da pelada (regra no banco: cartola_mercado).
+// depois disso só reabre quando o presidente encerra a rodada
+const mercadoFechaEm = () => {
+  const r = rodadaAberta(); if (!r) return null;
+  const f = new Date(r.fecha_em), j = app.jogo ? new Date(new Date(app.jogo.inicio) - 36e5) : null;
+  return j && j < f ? j : f;
+};
+const mercadoAberto = () => { const f = mercadoFechaEm(); return !!app.jogo && !!f && new Date() < f; };
 const encerradas = () => cart().rodadas.filter(r => r.status === "encerrada");
 const ultimaEncerrada = () => encerradas().slice(-1)[0] || null;
 const escalacaoDe = (rodadaId, dono = app.user.id) => cart().escalacoes.filter(e => e.rodada_id === rodadaId && e.jogador_id === dono);
@@ -1321,8 +1345,7 @@ function textoMercado(){
   if (!r) return "O presidente ainda não abriu a rodada";
   if (!app.jogo) return "Defina o dia da pelada para abrir o mercado";
   if (mercadoAberto()) return `Mercado fecha 1h antes da pelada · faltam ${faltaTempo(mercadoFechaEm())}`;
-  if (new Date() < mercadoAbreEm()) return `Mercado abre ${momento(mercadoAbreEm())} · faltam ${faltaTempo(mercadoAbreEm())}`;
-  return "Mercado fechado · os pontos saem quando o presidente lançar as estatísticas";
+  return "Mercado fechado · reabre quando o presidente lançar as estatísticas";
 }
 function statusRodada(){
   const r = rodadaAberta();
@@ -1434,23 +1457,71 @@ const atualizarPreviewTime = () => {
 /* ---------- Liga: o campeonato ---------- */
 const nomeLiga = () => app.pelada.cartola_liga_nome || `Liga ${app.pelada.nome}`;
 function cardTabelaLiga(rod, titulo = "Classificação"){
-  const tabela = liga();
+  // filtro: Geral (soma de tudo) ou o ranking de uma rodada só
+  const enc = encerradas();
+  if (state.ligaRodada !== "geral" && !enc.some(x => x.id === state.ligaRodada)) state.ligaRodada = "geral";
+  const filtro = state.ligaRodada === "geral" ? null : enc.find(x => x.id === state.ligaRodada);
+  const tabela = filtro
+    ? liga().map(t => ({ ...t, daRodada: pontosDoTime(filtro.id, t.jogador_id) }))
+        .sort((a, b) => (b.daRodada ?? -1e9) - (a.daRodada ?? -1e9) || a.nome.localeCompare(b.nome, "pt-BR"))
+    : liga();
+  const seletor = enc.length ? `<select class="select-pill" data-change="ligaRodada" aria-label="Filtrar por rodada">
+      <option value="geral" ${!filtro ? "selected" : ""}>Geral</option>
+      ${[...enc].reverse().map(x => `<option value="${x.id}" ${filtro && x.id === filtro.id ? "selected" : ""}>Rodada ${x.numero}</option>`).join("")}
+    </select>` : "";
+  const linha = (x, i) => {
+    const semTime = filtro && x.daRodada == null;
+    const detalhe = filtro ? (semTime ? " · não escalou" : ` · total ${pts(x.total)}`) : rod ? ` · rodada ${pts(pontosDoTime(rod.id, x.jogador_id) || 0)}` : "";
+    return `
+          <li class="${i < 3 && !semTime ? "top" : ""} ${x.jogador_id === app.user.id ? "me" : ""}" data-act="verTimeAmigo" data-id="${x.jogador_id}" data-rodada="${filtro ? filtro.id : ""}" style="cursor:pointer">
+            <span class="pos">${semTime ? "–" : i + 1}</span>
+            ${escudoSvg(x.escudo || escudoPadrao(x.nome), 34)}
+            <div class="who"><b>${esc(x.nome)}</b><span>${esc(nomeDe(x.jogador_id))}${x.jogador_id === app.user.id ? " · você" : ""}${detalhe}</span></div>
+            <span class="val" style="${semTime ? "color:var(--ink-3)" : ""}">${semTime ? "–" : pts(filtro ? x.daRodada : x.total)}</span>
+          </li>`;
+  };
   return `
     <section class="card fade span2" style="animation-delay:.08s">
-      <div class="eyebrow">${esc(nomeLiga())}</div><div class="h2">${titulo}</div>
+      <div class="card-head" style="margin-bottom:10px">
+        <div><div class="eyebrow">${esc(nomeLiga())}</div><div class="h2">${filtro ? `Rodada ${filtro.numero}` : titulo}</div></div>
+        ${seletor}
+      </div>
       ${tabela.length ? `<ul class="rank" style="margin-top:10px">
-        ${tabela.map((x, i) => `
-          <li class="${i < 3 ? "top" : ""} ${x.jogador_id === app.user.id ? "me" : ""}">
-            <span class="pos">${i + 1}</span>
-            ${escudoSvg(x.escudo || escudoPadrao(x.nome), 34)}
-            <div class="who"><b>${esc(x.nome)}</b><span>${esc(nomeDe(x.jogador_id))}${x.jogador_id === app.user.id ? " · você" : ""}${rod ? ` · rodada ${pts(pontosDoTime(rod.id, x.jogador_id) || 0)}` : ""}</span></div>
-            <span class="val">${pts(x.total)}</span>
-          </li>`).join("")}
+        ${tabela.map(linha).join("")}
       </ul>
-      <div class="foot"><span>Pontos somados de todas as rodadas</span><span>${plural(encerradas().length, "rodada", "rodadas")}</span></div>`
+      <p class="hint">Toque num time para ver a escalação${filtro ? " dessa rodada" : ""}. Os times dos outros só aparecem depois que o mercado fecha.</p>
+      <div class="foot"><span>${filtro ? `Pontos só da rodada ${filtro.numero}` : "Pontos somados de todas as rodadas"}</span><span>${plural(enc.length, "rodada", "rodadas")}</span></div>`
       : `<div class="empty">Nenhum time na liga ainda.<br>Cada time aparece quando o jogador abre a aba Cartola.</div>`}
     </section>`;
 }
+// time de outro jogador: só depois que o mercado fecha (o banco também só libera a partir daí)
+const timesVisiveis = () => { const r = rodadaAberta(); return !r || (new Date() >= new Date(r.fecha_em) && !mercadoAberto()); };
+function corpoTimeAmigo(){
+  const dono = state.timeAmigo, t = cart().times.find(x => x.jogador_id === dono) || { nome: "Time", jogador_id: dono };
+  const fechar = `<button class="x" data-act="fecharModal" aria-label="Fechar">×</button>`;
+  const topo = `<div class="row" style="flex-wrap:nowrap;margin:6px 0 4px">${escudoSvg(t.escudo || escudoPadrao(t.nome), 40)}
+    <div class="who"><b>${esc(t.nome)}</b><span>${esc(nomeDe(dono))}</span></div></div>`;
+  if (dono !== app.user.id && !state.timeAmigoRodada && !timesVisiveis()) return `${fechar}
+    <div class="eyebrow">Mercado aberto</div><div class="h2">Escalação secreta</div>${topo}
+    <p class="note" style="margin-top:10px">O time dos outros jogadores só fica visível depois que o mercado fechar, 1 hora antes da pelada. Volta aqui depois pra resenha!</p>
+    <button class="btn block" data-act="fecharModal">Entendi</button>`;
+  const r = (state.timeAmigoRodada && encerradas().find(x => x.id === state.timeAmigoRodada)) || rodadaAberta() || ultimaEncerrada();
+  if (!r) return `${fechar}<div class="h2">${esc(t.nome)}</div><div class="empty">Nenhuma rodada ainda.</div>`;
+  const esc_ = escalacaoDe(r.id, dono), encerrada = r.status === "encerrada";
+  const linhas = ["ATA", "MEI", "ZAG"].map(pos => {
+    const l = esc_.filter(e => e.posicao === pos);
+    return l.length ? `<div class="lista-sub">${pos}</div><ul class="list">${l.map(e => { const res = encerrada && resultado(r.id, e.atleta_id); return `
+      <li>${avatarDe(e.atleta_id)}<div class="who"><b>${esc(nomeDe(e.atleta_id))}${e.capitao ? ` <span class="pill lime" style="padding:2px 8px;font-size:11.5px">C ×1,5</span>` : ""}</b>
+        <span>${res ? `${pts(Number(res.pontos) * (e.capitao ? CAPITAO : 1))} pts` : `C$ ${cs(Number(e.preco_compra || precoDe(e.atleta_id)))}`}</span></div></li>`; }).join("")}</ul>` : "";
+  }).join("");
+  const total = encerrada ? pontosDoTime(r.id, dono) : null;
+  return `${fechar}
+    <div class="eyebrow">Rodada ${r.numero}${encerrada ? " · encerrada" : " · mercado fechado"}</div><div class="h2">Escalação</div>${topo}
+    ${esc_.length ? linhas : `<div class="empty">Esse time não escalou ninguém nessa rodada.</div>`}
+    ${total != null ? `<p class="note" style="margin-top:10px"><b>${pts(total)} pontos</b> na rodada</p>` : ""}
+    <button class="btn block" data-act="fecharModal">Fechar</button>`;
+}
+
 function renderLiga(){
   view.className = "grid solo wide";
   const tabela = liga(), ult = ultimaEncerrada(), lider = tabela[0];
@@ -1494,6 +1565,7 @@ function renderCartola(){
     state.capitao = (escalados.find(e => e.capitao) || {}).atleta_id || null;
     state.capitaoRodada = r && r.id;
   }
+  const temCapitao = !!state.capitao && escalados.some(e => e.atleta_id === state.capitao);
   const vaga = (pos_, e) => e ? `
       <button class="slot" data-act="cartCapitao" data-id="${e.atleta_id}" ${aberto ? "" : "disabled"} aria-label="Fazer ${esc(nomeDe(e.atleta_id))} capitão">
         <span class="bola">${esc(iniciais(membroDe(e.atleta_id) ? membroDe(e.atleta_id).jogadores.nome : "?"))}${state.capitao === e.atleta_id ? "<i>C</i>" : ""}${duvida(e.atleta_id) ? `<i class="duvida" title="Dúvida: está na lista de espera">?</i>` : ""}</span>
@@ -1541,8 +1613,9 @@ function renderCartola(){
       </div>
       <div class="dois">
         <a class="btn ghost" href="#mercado">Ver mercado</a>
-        <button class="btn" data-act="cartSalvar" ${aberto ? "" : "disabled"}>Salvar time</button>
+        <button class="btn" data-act="cartSalvar" ${aberto && temCapitao ? "" : "disabled"}>Salvar time</button>
       </div>
+      ${aberto && escalados.length && !temCapitao ? `<p class="hint" style="text-align:center"><b>Escolha o capitão para salvar o time:</b> toque num jogador do campo.</p>` : ""}
     </section>`;
 }
 
@@ -1744,7 +1817,7 @@ function renderRegras(){
   const passos = [
     ["Escale 6 jogadores", "Zagueiros, meias e atacantes, numa das 4 formações: 2-2-2 (equilibrado), 3-2-1 (defensivo), 2-1-3 (ofensivo) ou 2-3-1 (meio forte). Tudo dentro do seu saldo de cartoletas."],
     ["Escolha o capitão", "A pontuação dele vale 1,5×. Dá pra trocar até o mercado fechar."],
-    ["Mercado só no dia da pelada", "Abre à 0h do dia do jogo e fecha 1 hora antes da pelada. Dá pra escalar quem confirmou presença e quem está na lista de espera."],
+    ["Mercado fecha 1h antes da pelada", "Fica aberto a semana toda e fecha 1 hora antes do jogo. Dá pra escalar quem confirmou presença e quem está na lista de espera."],
     ["Cuidado com as dúvidas", "Quem está na lista de espera aparece como dúvida: pode subir pra lista e jogar, ou ficar de fora. Se não jogar, faz 0 ponto. Escalar ou não é estratégia sua."],
     ["Pontos depois do jogo", "Os pontos só contam quando o presidente sobe as estatísticas: gols, assistências, placares da noite e cartões."],
     ["Preços se atualizam", "Quem joga bem valoriza, quem joga mal desvaloriza. Seu patrimônio acompanha."]
@@ -1753,7 +1826,7 @@ function renderRegras(){
     ${heroCartola({
       status: "Cartola da pelada", titulo: "Regras e scouts", sub: "Como funciona a pontuação e as cartoletas", rotulo: "Todo mundo começa com",
       numero: "60", pill: "C$ cartoletas", meta: "Moeda do jogo",
-      stats: [[String(TAM_TIME), "Jogadores"], ["×1,5", "Capitão"], [app.jogo ? `${DIAS_CURTOS[new Date(app.jogo.inicio).getDay()]} 0h` : "–", "Mercado abre"]]
+      stats: [[String(TAM_TIME), "Jogadores"], ["×1,5", "Capitão"], [app.jogo ? `${DIAS_CURTOS[new Date(app.jogo.inicio).getDay()]} ${String(new Date(new Date(app.jogo.inicio) - 36e5).getHours()).padStart(2, "0")}h${String(new Date(app.jogo.inicio).getMinutes()).padStart(2, "0")}` : "–", "Mercado fecha"]]
     })}
     ${subnavCartola("regras")}
     <section class="card fade" style="animation-delay:.05s">
@@ -1901,7 +1974,7 @@ function cardCartolaAdmin(){
         <div class="field" style="grid-column:1/-1"><span>Nome da liga</span>
           <form data-form="ligaNome" class="row"><input class="input" name="nome" maxlength="40" value="${esc(P.cartola_liga_nome || "")}" placeholder="Liga ${esc(P.nome)}" aria-label="Nome da liga"><button class="btn sm">Salvar</button></form></div>
       </div>
-      <p class="hint" style="margin-top:10px">O mercado abre sozinho à 0h do dia da pelada e fecha 1 hora antes do jogo. Entram no mercado os confirmados na lista e, como dúvida, os da lista de espera.</p>
+      <p class="hint" style="margin-top:10px">O mercado fica aberto a semana toda e fecha 1 hora antes do jogo. Reabre quando você encerra a rodada. Entram no mercado os confirmados na lista e, como dúvida, os da lista de espera.</p>
       ${!r ? `
         <p class="note" style="margin-top:14px">${encerradas().length ? "Nenhuma rodada aberta." : "O Cartola ainda não começou."} Antes, defina a posição dos jogadores no Elenco (Editar).</p>
         <button class="btn block" data-act="cartAbrir">Abrir rodada ${cart().rodadas.length + 1}</button>`
@@ -2078,7 +2151,7 @@ function passosGuia(){
     { ico: ICO_VOTO, titulo: "Votação",
       corpo: itens([
         "Depois de confirmar, você avalia quem também vai <b>de 1 a 6, igual ao pote</b>: 1 = joga muito, 6 = joga pouco.",
-        "O voto é <b>secreto</b> e dá pra mudar até a lista fechar.",
+        "Só o presidente vê os votos, e dá pra mudar até a lista fechar.",
         "Quem confirmar depois de você aparece pra votar na próxima vez que abrir o app." ]) },
     { ico: ICO_TIMES, titulo: "Times da noite",
       corpo: itens([
@@ -2093,7 +2166,7 @@ function passosGuia(){
     { ico: ico("estrela"), titulo: "Cartola da pelada",
       corpo: itens([
         "Monte seu time com <b>C$ 60</b> de saldo, escalando jogadores da própria pelada.",
-        "O <b>mercado abre no dia do jogo à meia-noite</b> e fecha na hora que a bola rola. Só dá pra escalar quem confirmou.",
+        "O <b>mercado fica aberto a semana toda</b> e fecha 1 hora antes da pelada. Só dá pra escalar quem confirmou.",
         "Os pontos contam depois que o presidente sobe as estatísticas. Dispute a liga com a galera." ]) + `<p class="hint">Só aparece se a sua pelada tiver o Cartola ligado.</p>` },
     { ico: ico("agenda"), titulo: pres ? "Pelada · você é o presidente" : "Pelada",
       corpo: pres ? itens([
@@ -2179,6 +2252,7 @@ function renderModal(){
   const el = document.getElementById("modal");
   const t = state.modal, j = app.jogo;
   if (t === "guia") { el.innerHTML = `<div class="sheet" data-act="nada" role="dialog" aria-modal="true" aria-label="Como funciona o Anotou">${corpoGuia()}</div>`; return; }
+  if (t === "timeAmigo") { el.innerHTML = `<div class="sheet" data-act="nada" role="dialog" aria-modal="true">${corpoTimeAmigo()}</div>`; return; }
   if (t === "resumoPos") {
     el.innerHTML = `<div class="sheet" data-act="nada" role="dialog" aria-modal="true">${corpoResumoPos()}</div>`;
     return;
@@ -2212,7 +2286,7 @@ function renderModal(){
     corpo = `${fechar}
       <div class="eyebrow">Votação · ${faltam ? `falta${faltam > 1 ? "m" : ""} ${faltam}` : "tudo votado ✓"}</div>
       <div class="h2">Avalie quem está na lista</div>
-      <p class="note">De 1 a 6, igual ao pote: <b>1 = joga muito</b>, 6 = joga pouco. Seu voto é secreto e dá pra mudar até a lista fechar.</p>
+      <p class="note">De 1 a 6, igual ao pote: <b>1 = joga muito</b>, 6 = joga pouco. Só o presidente vê seu voto, e dá pra mudar até a lista fechar.</p>
       ${prazo}
       ${ids.length ? `<ul class="list">${ids.map(vid => `
         <li class="voto">
@@ -2453,6 +2527,8 @@ function renderPeladaAdmin(){
     ${heroPelada()}
     ${subnavPelada("pelada")}
     ${cardLista()}
+    ${cardVotosSemana()}
+    ${cardRankingGalera()}
     ${app.membro && !app.modoDev ? `<section class="card fade" style="animation-delay:.04s">
       <div class="eyebrow">Cartola e sorteio</div><div class="h2">Sua posição</div>
       ${seletorPosicao(true)}
@@ -2502,6 +2578,87 @@ function cardDados(){
         <button class="btn block">Salvar alterações</button>
       </form>
     </section>`;
+}
+
+/* presidente: média dos votos de cada jogador na janela do pote, em ranking ou por pote */
+function cardRankingGalera(){
+  const ids = janela(), sem = app.pelada.janela_semanas;
+  const media = new Map();
+  app.membros.forEach(m => {
+    const r = app.medias.filter(x => x.jogador_id === m.jogador_id && ids.has(x.partida_id));
+    const n = r.reduce((s, x) => s + Number(x.total_votos), 0);
+    if (n) media.set(m.jogador_id, { v: 7 - r.reduce((s, x) => s + Number(x.media) * Number(x.total_votos), 0) / n, n });
+  });
+  const nota = id => { const x = media.get(id); return x ? `<div class="rk-nota" title="${plural(x.n, "voto", "votos")}">
+      <span class="trilho"><i style="width:${Math.round((6 - x.v) / 5 * 92 + 8)}%"></i></span><b>${fmt(x.v)}</b></div>`
+    : `<span class="pill soft">Sem votos</span>`; };
+  const linha = (id, pos) => `<li>${pos ? `<span class="rk-pos">${pos}</span>` : ""}${avatarDe(id)}
+      <div class="who"><b>${esc(nomeDe(id))}</b><span>${media.has(id) ? plural(media.get(id).n, "voto", "votos") : "ninguém votou ainda"}</span></div>${nota(id)}</li>`;
+  const porNota = (a, b) => (media.has(a) ? media.get(a).v : 99) - (media.has(b) ? media.get(b).v : 99) || nomeDe(a).localeCompare(nomeDe(b), "pt-BR");
+  const todos = app.membros.map(m => m.jogador_id).sort(porNota);
+  let corpo;
+  if (state.rankModo === "ranking") {
+    let i = 0;
+    corpo = `<ul class="list">${todos.map(id => linha(id, media.has(id) ? ++i : "")).join("")}</ul>`;
+  } else {
+    const tabela = potes(), N = app.pelada.qtd_potes, grupos = [];
+    for (let k = 1; k <= N; k++) grupos.push([`Pote ${k}`, todos.filter(id => (tabela.get(id) || {}).pote === k)]);
+    grupos.push(["Sem pote", todos.filter(id => !tabela.get(id))]);
+    corpo = grupos.filter(([, l]) => l.length).map(([t, l]) => `
+      <div class="lista-sub">${t} <span>${plural(l.length, "jogador", "jogadores")}</span></div>
+      <ul class="list">${l.map(id => linha(id)).join("")}</ul>`).join("");
+  }
+  return `<section class="card fade" style="animation-delay:.04s">
+    <div class="eyebrow">Votação</div><div class="h2">Ranking da galera</div>
+    <p class="note">Média dos votos das últimas ${sem} semanas, no formato do pote: 1 = joga muito, 6 = joga pouco.</p>
+    <div class="seg full" style="margin:10px 0 4px">
+      <button class="${state.rankModo === "ranking" ? "on" : ""}" data-act="rankModo" data-valor="ranking">Ranking</button>
+      <button class="${state.rankModo === "potes" ? "on" : ""}" data-act="rankModo" data-valor="potes">Por pote</button>
+    </div>
+    ${corpo}
+  </section>`;
+}
+
+/* presidente: quem deu qual nota pra quem, por data de pelada */
+function cardVotosSemana(){
+  const partidas = [...app.partidas].reverse(), atual = partidaDoJogo();
+  const head = extra => `<div class="card-head" style="margin-bottom:10px">
+      <div><div class="eyebrow">Votação</div><div class="h2">Votos da semana</div></div>${extra || ""}</div>`;
+  if (!partidas.length) return `<section class="card fade" style="animation-delay:.035s">${head()}<div class="empty">Nenhuma pelada com votação ainda.</div></section>`;
+  const pid = partidas.some(x => x.id === state.votosPartida) ? state.votosPartida : (atual || partidas[0]).id;
+  const votos = state.votosAdm[pid];
+  if (votos === undefined) { state.votosAdm[pid] = null; carregarVotosAdm(pid); }
+  const seletor = `<select class="select-pill" data-change="votosPartida" aria-label="Data da pelada">
+      ${partidas.map(x => `<option value="${x.id}" ${x.id === pid ? "selected" : ""}>${dataLonga(x.data)}${atual && x.id === atual.id ? " · atual" : ""}</option>`).join("")}</select>`;
+  let corpo;
+  if (!votos) corpo = `<div class="empty">Carregando votos…</div>`;
+  else if (!votos.length) corpo = `<div class="empty">Ninguém votou nessa pelada.</div>`;
+  else {
+    const pote = v => 7 - Number(v.nota), recebidos = state.votosModo === "recebidos";
+    const grupos = new Map();
+    votos.forEach(v => { const k = recebidos ? v.votado_id : v.votante_id; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(v); });
+    const media = l => l.reduce((s, v) => s + pote(v), 0) / l.length;
+    const linhas = [...grupos].sort((a, b) => recebidos ? media(a[1]) - media(b[1]) : nomeDe(a[0]).localeCompare(nomeDe(b[0])));
+    const votantes = new Set(votos.map(v => v.votante_id)).size;
+    corpo = `<p class="note">${plural(votantes, "pessoa votou", "pessoas votaram")} · ${plural(votos.length, "voto", "votos")}. Nota no formato do pote: 1 = joga muito, 6 = joga pouco.</p>
+      <div class="seg full" style="margin:10px 0 4px">
+        <button class="${recebidos ? "on" : ""}" data-act="votosModo" data-valor="recebidos">Notas recebidas</button>
+        <button class="${recebidos ? "" : "on"}" data-act="votosModo" data-valor="dados">Votos de cada um</button>
+      </div>
+      <ul class="list">${linhas.map(([id, l]) => `
+        <li class="voto-adm">${avatarDe(id)}
+          <div class="who"><b>${esc(nomeDe(id))}</b><span>${recebidos ? `Média pote ${fmt(media(l))} · ${plural(l.length, "voto", "votos")}` : `Votou em ${plural(l.length, "jogador", "jogadores")}`}</span></div>
+          <div class="voto-chips">${[...l].sort((a, b) => pote(a) - pote(b)).map(v => `<span>${esc(nomeDe(recebidos ? v.votante_id : v.votado_id))} <b>${pote(v)}</b></span>`).join("")}</div>
+        </li>`).join("")}</ul>`;
+  }
+  return `<section class="card fade" style="animation-delay:.035s">${head(seletor)}${corpo}</section>`;
+}
+async function carregarVotosAdm(pid){
+  try {
+    const r = await tudo(() => sb.from("votos").select("votante_id, votado_id, nota").eq("partida_id", pid).order("id"));
+    state.votosAdm[pid] = r.data;
+  } catch (e) { delete state.votosAdm[pid]; console.error(e); aviso(traduz(e)); return; }
+  if (location.hash === "#pelada" || !location.hash) route(true);
 }
 
 function cardPotes(){
@@ -2862,7 +3019,8 @@ function posPassoJogos(){
     <section class="card fade" style="animation-delay:.1s">
       <div class="eyebrow">Pronto?</div><div class="h2">Conferir e salvar</div>
       <p class="note">Antes de salvar aparece um resumo com tudo pra você conferir.${posVitoria() ? " A vitória de cada jogador sai sozinha do placar." : ""}</p>
-      <button class="btn block" data-act="posConferir" ${P.jogos.length ? "" : "disabled"}>Conferir resumo</button>
+      <button class="btn block verde" data-act="posConferir" ${P.jogos.length ? "" : "disabled"}>Computar pelada</button>
+      ${avisoComputar()}
     </section>`;
 }
 
@@ -2933,8 +3091,11 @@ function corpoResumoPos(){
         ${seloTime(timeDe(id))}</li>`; }).join("")}</ul>
     <div class="prazo off"><div>${previsaoCartola()}</div></div>
     ${P.substitui ? `<p class="hint">O que já estava registrado nessa data é substituído.</p>` : ""}
-    <div class="dois"><button class="btn ghost" data-act="fecharModal">Corrigir</button><button class="btn" data-act="posSalvar">Salvar e atualizar</button></div>`;
+    <div class="dois"><button class="btn ghost" data-act="fecharModal">Corrigir</button><button class="btn verde" data-act="posSalvar">Computar pelada</button></div>
+    ${avisoComputar()}`;
 }
+const avisoComputar = () => app.pelada.cartola_ativo
+  ? `<p class="hint" style="text-align:center">Para que o Cartola funcione bem na semana que vem, é necessário que você sempre finalize os lançamentos das estatísticas.</p>` : "";
 
 function renderCardJogadores(){
   const el = document.getElementById("cardJog");
@@ -3319,7 +3480,7 @@ function renderAjustes(){
   view.innerHTML = `
     <section class="card fade">
       <div class="eyebrow">Patrocinador</div><div class="h2">Box do patrocinador</div>
-      <p class="note">Aparece no Início de todos os jogadores. Deixe o nome vazio pra esconder.</p>
+      <p class="note">O box está desligado no site no momento. Os dados ficam salvos pra quando ele voltar.</p>
       <form data-form="patrocinio">
         <label class="field"><span>Nome</span><input class="input" name="nome" value="${esc(p.nome || "")}" placeholder="Sua marca aqui"></label>
         <label class="field"><span>Descrição</span><input class="input" name="texto" value="${esc(p.texto || "")}" placeholder="Desconto exclusivo na pelada"></label>
@@ -3508,6 +3669,8 @@ const ACOES = {
   // registrar pelada: data → separar times → registrar partidas
   registrarPelada: () => { state.pos = { passo: "data" }; irProRegistro(); },
   verPartidas: () => { state.verPartidas = !state.verPartidas; route(true); },
+  votosModo: el => { state.votosModo = el.dataset.valor; route(true); },
+  rankModo: el => { state.rankModo = el.dataset.valor; route(true); },
   posCorrigir: el => run(() => abrirPos(el.dataset.data)),
   posContinuar: () => run(() => abrirPos(rascunhoPos().data)),
   posDescartar: () => { state.pos = null; guardarPos(); route(true); aviso("Rascunho descartado"); },
@@ -3678,7 +3841,9 @@ const ACOES = {
     aviso(`${nomeDe(el.dataset.id)} vendido`);
   }),
   cartCapitao: el => { state.capitao = el.dataset.id; route(true); },
+  verTimeAmigo: el => { state.timeAmigo = el.dataset.id; state.timeAmigoRodada = el.dataset.rodada || null; state.modal = "timeAmigo"; renderModal(); },
   cartSalvar: () => run(async () => {
+    if (!state.capitao || !meuEscalado().some(e => e.atleta_id === state.capitao)) { aviso("Escolha o capitão antes de salvar o time"); return; }
     const atual = (meuEscalado().find(e => e.capitao) || {}).atleta_id || null;
     if (state.capitao && state.capitao !== atual) {
       ok(await sb.rpc("cartola_capitao", { p: app.pelada.id, atleta: state.capitao }));
@@ -3701,7 +3866,7 @@ const ACOES = {
   cartAbrir: () => run(async () => {
     const r = ok(await sb.rpc("cartola_abrir_rodada", { p: app.pelada.id }));
     await carregarCartola(); route(true);
-    aviso(`Rodada ${r.numero} aberta. O mercado abre à 0h do dia da pelada.`);
+    aviso(`Rodada ${r.numero} aberta. O mercado já está aberto e fecha 1h antes da pelada.`);
   }),
   cartScoutMenos: el => run(async () => {
     const r = rodadaAberta(), q = Number(el.dataset.qtd);
@@ -3763,6 +3928,8 @@ const MUDANCAS = {
   peso: el => run(async () => { await salvarPelada({ peso_votacao: Number(el.value) }); }),
   mercOrdem: el => { state.mercOrdem = el.value; renderListaMerc(); },
   pontRodada: el => { state.pontRodada = el.value; route(true); },
+  ligaRodada: el => { state.ligaRodada = el.value; route(true); },
+  votosPartida: el => { state.votosPartida = el.value; route(true); },
   cartPartida: el => run(async () => {
     ok(await sb.rpc("cartola_vincular_partida", { rodada: rodadaAberta().id, partida: el.value || null }));
     await carregarCartola(); route(true);
