@@ -1572,6 +1572,7 @@ function renderCartola(){
     state.capitaoRodada = r && r.id;
   }
   const temCapitao = !!state.capitao && escalados.some(e => e.atleta_id === state.capitao);
+  const completo = escalados.length >= TAM_TIME;
   const vaga = (pos_, e) => e ? `
       <button class="slot" data-act="cartCapitao" data-id="${e.atleta_id}" ${aberto ? "" : "disabled"} aria-label="Fazer ${esc(nomeDe(e.atleta_id))} capitão">
         <span class="bola">${esc(iniciais(membroDe(e.atleta_id) ? membroDe(e.atleta_id).jogadores.nome : "?"))}${state.capitao === e.atleta_id ? "<i>C</i>" : ""}${duvida(e.atleta_id) ? `<i class="duvida" title="Dúvida: está na lista de espera">?</i>` : ""}</span>
@@ -1619,9 +1620,10 @@ function renderCartola(){
       </div>
       <div class="dois">
         <a class="btn ghost" href="#mercado">Ver mercado</a>
-        <button class="btn" data-act="cartSalvar" ${aberto && temCapitao ? "" : "disabled"}>Salvar time</button>
+        <button class="btn" data-act="cartSalvar" ${aberto && completo && temCapitao ? "" : "disabled"}>Salvar time</button>
       </div>
-      ${aberto && escalados.length && !temCapitao ? `<p class="hint" style="text-align:center"><b>Escolha o capitão para salvar o time:</b> toque num jogador do campo.</p>` : ""}
+      ${aberto && !completo ? `<p class="hint" style="text-align:center"><b>Escale os ${TAM_TIME} para salvar o time.</b> ${faltamNoTime(escalados)}: toque na vaga vazia.</p>`
+        : aberto && !temCapitao ? `<p class="hint" style="text-align:center"><b>Escolha o capitão para salvar o time:</b> toque num jogador do campo.</p>` : ""}
     </section>`;
 }
 
@@ -3904,6 +3906,7 @@ const ACOES = {
   cartCapitao: el => { state.capitao = el.dataset.id; route(true); },
   verTimeAmigo: el => { state.timeAmigo = el.dataset.id; state.timeAmigoRodada = el.dataset.rodada || null; state.modal = "timeAmigo"; renderModal(); },
   cartSalvar: () => run(async () => {
+    if (meuEscalado().length < TAM_TIME) { aviso(`Escale os ${TAM_TIME} para salvar. ${faltamNoTime(meuEscalado())}.`); return; }
     if (!state.capitao || !meuEscalado().some(e => e.atleta_id === state.capitao)) { aviso("Escolha o capitão antes de salvar o time"); return; }
     const atual = (meuEscalado().find(e => e.capitao) || {}).atleta_id || null;
     if (state.capitao && state.capitao !== atual) {
@@ -3911,7 +3914,7 @@ const ACOES = {
       await carregarCartola();
     }
     route(true);
-    aviso(meuEscalado().length < TAM_TIME ? `Time salvo. ${faltamNoTime(meuEscalado())}.` : "Time salvo!");
+    aviso("Time salvo");
   }),
   cartVaga: el => { state.mercPos = el.dataset.pos; state.mercTodos = false; location.hash = "mercado"; },
   cartRenomear: () => { state.renomear = !state.renomear; route(true); },
