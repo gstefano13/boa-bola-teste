@@ -88,8 +88,8 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .menu-perfil .quem{padding:8px 12px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;min-width:0}
 .menu-perfil .quem b{display:block;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .menu-perfil .quem span{display:block;font-size:12px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.menu-perfil button{display:block;width:100%;text-align:left;padding:11px 12px;border-radius:10px;font-size:14px;font-weight:500;color:var(--ink)}
-.menu-perfil button:hover{background:var(--soft)}
+.menu-perfil button,.menu-perfil a{display:block;text-decoration:none;width:100%;text-align:left;padding:11px 12px;border-radius:10px;font-size:14px;font-weight:500;color:var(--ink)}
+.menu-perfil button:hover,.menu-perfil a:hover{background:var(--soft)}
 .menu-perfil button.sair{color:#B42318}
 .av{width:32px;height:32px;border-radius:50%;background:var(--lime-soft);color:var(--ink);display:grid;place-items:center;font-size:12px;font-weight:600;flex:none;overflow:hidden}
 .av img{width:100%;height:100%;object-fit:cover}
@@ -518,7 +518,7 @@ const state = { periodo: "mes", stat: "gols", login: "codigo", loginEmail: "", l
   busca: "", filtro: "todas", verTodas: false, novaPelada: false, buscaUsu: "",
   buscaJog: "", filtroJog: "todos", verTodosJog: false, editando: null, addJogador: false, editMetrica: null,
   mercPos: "todos", mercBusca: "", mercOrdem: "media", mercTodos: false, pontRodada: null, ligaRodada: "geral", faq: 0, renomear: false,
-  capitao: null, capitaoRodada: undefined, confirmEncerrar: false, editScout: null, ajustesAbertos: false, editarTime: false, formTime: null, modal: null, modalVisto: false, pos: null, verPartidas: false, menuPerfil: false, dashDias: 30, votosVistos: new Set(), guiaPasso: 0, votarIds: [], troca: null, votosAdm: {}, votosPartida: null, votosModo: "recebidos", rankModo: "ranking" };
+  capitao: null, capitaoRodada: undefined, confirmEncerrar: false, editScout: null, ajustesAbertos: false, editarTime: false, formTime: null, modal: null, modalVisto: false, pos: null, verPartidas: false, menuPerfil: false, votosVistos: new Set(), guiaPasso: 0, votarIds: [], troca: null, votosAdm: {}, votosPartida: null, votosModo: "recebidos", rankModo: "ranking" };
 
 /* ===================== REGRAS ===================== */
 const CHUTEIRAS = [
@@ -575,7 +575,7 @@ const ICONES = {
 const NAV_JOGADOR = [["inicio", "Início", "casa"], ["jogadores", "Jogadores", "pessoas"], ["rankings", "Rankings", "barras"], ["pelada", "Pelada", "agenda"]];
 const navJogador = () => app.pelada && app.pelada.cartola_ativo
   ? [...NAV_JOGADOR.slice(0, 3), ["cartola", "Cartola", "estrela"], NAV_JOGADOR[3]] : NAV_JOGADOR;
-const NAV_DEV = [["peladas", "Peladas", "casa"], ["dashboard", "Painel", "grafico"], ["usuarios", "Usuários", "pessoas"], ["rankings", "Rankings", "barras"], ["ajustes", "Ajustes", "agenda"]];
+const NAV_DEV = [["peladas", "Peladas", "casa"], ["usuarios", "Usuários", "pessoas"], ["rankings", "Rankings", "barras"], ["ajustes", "Ajustes", "agenda"]];
 const LUPA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
 
 /* ===================== POTES =====================
@@ -851,7 +851,7 @@ function renderMenuPerfil(){
   el.innerHTML = `
     <div class="quem"><b>${esc(app.perfil.nome || nomeExibido())}</b><span>${esc(app.user.email || "")}</span></div>
     ${app.fantasma ? `<button role="menuitem" data-act="sairFantasma">👻 Sair do modo fantasma</button>` : ""}
-    ${app.fantasma ? "" : app.modoDev ? `<button role="menuitem" data-act="irPara" data-hash="ajustes">Ajustes</button>`
+    ${app.fantasma ? "" : app.modoDev ? `<button role="menuitem" data-act="irPara" data-hash="ajustes">Ajustes</button><a role="menuitem" href="analytics.html">Analytics</a>`
       : app.pelada ? `<button role="menuitem" data-act="irPara" data-hash="pelada">Minha pelada</button>` : ""}
     ${!app.modoDev && !app.fantasma && (app.peladas.length > 1 || app.dev) ? `<button role="menuitem" data-act="trocar">Trocar de pelada</button>` : ""}
     ${app.dev && !app.modoDev && !app.fantasma ? `<button role="menuitem" data-act="painel">Painel do dev</button>` : ""}
@@ -884,7 +884,7 @@ function route(manterScroll){
   let itens = [], v;
   if (!app.user) renderLogin();
   else if (app.modoDev) {
-    const views = { peladas: renderPeladasDev, pelada: app.pelada ? renderPelada : renderPeladasDev, dashboard: renderDashboard, usuarios: renderUsuarios, rankings: renderRankingsDev, ajustes: renderAjustes };
+    const views = { peladas: renderPeladasDev, pelada: app.pelada ? renderPelada : renderPeladasDev, usuarios: renderUsuarios, rankings: renderRankingsDev, ajustes: renderAjustes };
     if (app.pelada) Object.assign(views, { times: renderTimes, pospelada: renderPosPelada });
     // dev vê o Cartola da pelada aberta em modo organizador (sem time próprio)
     if (app.pelada) Object.assign(views, { cartola: renderCartola, mercado: renderMercado, liga: renderLiga, pontuacao: renderPontuacao, regras: renderRegras });
@@ -3309,161 +3309,6 @@ function registrarAcesso(tela){
   cidadeDoAparelho().then(loc => sb.from("acessos").insert({ ...linha, ...loc })).then(() => {}, () => {});
 }
 
-/* ===================== DEV · PAINEL DE USO ===================== */
-const NOME_TELA = { inicio: "Início", jogadores: "Jogadores", rankings: "Rankings", pelada: "Pelada", times: "Times da noite", cartola: "Cartola",
-  mercado: "Mercado", liga: "Liga", pontuacao: "Pontuação", regras: "Regras", pospelada: "Registrar pelada" };
-const NOME_APARELHO = { iphone: "iPhone", android: "Android", computador: "Computador", outro: "Outro" };
-const RAMPA_USO = ["#86BD3F", "#65A01F", "#4C8212", "#36640A", "#234406"];   // um tom só, claro → escuro (validado)
-const num = n => Number(n || 0).toLocaleString("pt-BR");
-const pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : "–";
-const diaSemana = s => DIAS_CURTOS[new Date(s + "T12:00").getDay()];
-
-const kpi = (valor, rotulo, nota) => `<div class="kpi"><b>${valor}</b><span>${rotulo}</span>${nota ? `<small>${nota}</small>` : ""}</div>`;
-
-// barras verticais por dia, uma série só (o título diz o que é)
-function barrasDia(lista, campo, dica){
-  const max = Math.max(1, ...lista.map(x => x[campo]));
-  return `
-    <div class="eixo-y">${num(max)}</div>
-    <div class="barras">${lista.map(x => `<div class="barra" tabindex="0" data-dica="${esc(dica(x))}"><i style="height:${x[campo] ? Math.max(3, 100 * x[campo] / max) : 0}%"></i></div>`).join("")}</div>
-    <div class="eixo-x"><span>${dataCurta(lista[0].dia)}</span>${lista.length > 2 ? `<span>${dataCurta(lista[Math.floor(lista.length / 2)].dia)}</span>` : ""}<span>${dataCurta(lista[lista.length - 1].dia)}</span></div>`;
-}
-
-// barras horizontais com o número ao lado
-function barrasH(itens){
-  const max = Math.max(1, ...itens.map(i => i.valor));
-  return `<ul class="hbarras">${itens.map(i => `
-    <li tabindex="0" data-dica="${esc(i.dica)}"><span class="r">${esc(i.rotulo)}</span><span class="t"><i style="width:${Math.max(i.valor ? 2 : 0, 100 * i.valor / max)}%"></i></span><b>${num(i.valor)}</b></li>`).join("")}</ul>`;
-}
-
-// mapa de calor dia da semana × hora (horário de Brasília)
-function calorHorario(celulas){
-  const m = new Map(celulas.map(c => [c.d * 24 + c.h, c]));
-  const max = Math.max(1, ...celulas.map(c => c.acessos));
-  const cor = n => n ? RAMPA_USO[Math.min(RAMPA_USO.length - 1, Math.ceil(n / max * RAMPA_USO.length) - 1)] : "#F1F2EE";
-  return `
-    <div class="calor" role="img" aria-label="Acessos por dia da semana e hora">
-      ${DIAS_CURTOS.map((nome, d) => `<span class="dl">${nome}</span>${Array.from({ length: 24 }, (_, h) => {
-        const c = m.get(d * 24 + h) || { acessos: 0, pessoas: 0 };
-        return `<i tabindex="0" style="background:${cor(c.acessos)}" data-dica="${nome} ${h}h · ${plural(c.acessos, "acesso", "acessos")} · ${plural(c.pessoas, "pessoa", "pessoas")}"></i>`;
-      }).join("")}`).join("")}
-      <span></span>${Array.from({ length: 24 }, (_, h) => `<span class="hl">${h % 3 ? "" : h + "h"}</span>`).join("")}
-    </div>
-    <div class="legenda-calor"><span>nenhum</span><i style="background:#F1F2EE"></i><span>menos</span>${RAMPA_USO.map(c => `<i style="background:${c}"></i>`).join("")}<span>mais</span></div>`;
-}
-
-async function renderDashboard(){
-  view.className = "grid solo wide painel-uso";
-  view.innerHTML = `<section class="card fade"><div class="empty">Carregando o painel…</div></section>`;
-  let p;
-  try { p = ok(await sb.rpc("painel_uso", { dias: state.dashDias })); }
-  catch (e) { view.innerHTML = `<section class="card"><div class="empty">${esc(traduz(e))}</div></section>`; return; }
-  if (location.hash !== "#dashboard") return;   // saiu da tela enquanto carregava
-  const t = p.totais, a = p.ativos, semDados = !t.acessos;
-  view.innerHTML = `
-    <section class="card fade">
-      <div class="card-head" style="margin-bottom:0">
-        <div><div class="eyebrow">Só você vê</div><div class="h2">Painel de uso</div></div>
-      </div>
-      <div class="seg" style="margin-top:12px">${[7, 30, 90].map(n => `<button class="${state.dashDias === n ? "on" : ""}" data-act="dashDias" data-valor="${n}">${n} dias</button>`).join("")}</div>
-      <p class="note">De ${dataBr(p.desde)} a ${dataBr(p.ate)}, horário de Brasília. Seus acessos de dev e o modo fantasma não entram na conta.</p>
-      ${semDados ? `<p class="hint">O registro de acessos começa agora: uso, horários, cidades e aparelhos vão aparecendo conforme as pessoas abrem o app. Contas, peladas e partidas já mostram o histórico.</p>` : ""}
-      <div class="kpis">
-        ${kpi(num(a.hoje), "Ativos hoje")}
-        ${kpi(num(a.d7), "Ativos em 7 dias")}
-        ${kpi(num(a.d30), "Ativos em 30 dias")}
-        ${kpi(pct(a.voltaram, a.semana_passada), "Voltaram nesta semana", `${num(a.voltaram)} de ${num(a.semana_passada)} da semana passada`)}
-        ${kpi(num(t.contas), "Contas criadas", `+${num(t.novas_contas)} no período · ${num(t.perfis_pendentes)} perfis esperando cadastro`)}
-        ${kpi(num(t.peladas_ativas), "Peladas ativas", `+${num(t.peladas_novas)} no período`)}
-        ${kpi(num(t.partidas), "Partidas no período", `${num(t.gols)} gols`)}
-        ${kpi(pct(p.instalado, t.pessoas), "Instalaram o app", `${num(p.instalado)} de ${num(t.pessoas)} que usaram`)}
-      </div>
-    </section>
-
-    <section class="card fade" style="animation-delay:.03s">
-      <div class="eyebrow">Uso por dia</div><div class="h2">Pessoas que abriram o app</div>
-      ${barrasDia(p.diario, "pessoas", x => `${diaSemana(x.dia)} ${dataCurta(x.dia)} · ${plural(x.pessoas, "pessoa", "pessoas")} · ${plural(x.acessos, "acesso", "acessos")}`)}
-    </section>
-
-    <section class="card fade" style="animation-delay:.05s">
-      <div class="eyebrow">Crescimento</div><div class="h2">Novas contas por dia</div>
-      ${barrasDia(p.diario, "novas", x => `${diaSemana(x.dia)} ${dataCurta(x.dia)} · ${plural(x.novas, "conta nova", "contas novas")}`)}
-    </section>
-
-    <section class="card fade" style="animation-delay:.07s">
-      <div class="eyebrow">Mapa de calor</div><div class="h2">Quando o pessoal usa</div>
-      <p class="note">Cada quadrado é uma hora da semana; quanto mais escuro, mais acessos.</p>
-      ${calorHorario(p.calor)}
-    </section>
-
-    <section class="card fade" style="animation-delay:.09s">
-      <div class="eyebrow">Mapa de calor</div><div class="h2">De onde o pessoal usa</div>
-      <p class="note">Cidade aproximada pela conexão de internet de cada aparelho.</p>
-      <div class="mapa-uso" id="mapaUso"></div>
-      ${p.cidades.length ? `<div class="lista-sub">Cidades <span>${plural(p.cidades.length, "cidade", "cidades")}</span></div>
-        ${barrasH(p.cidades.slice(0, 10).map(c => ({ rotulo: `${c.cidade}${c.estado ? ` · ${c.estado}` : ""}`, valor: c.pessoas,
-          dica: `${c.cidade}: ${plural(c.pessoas, "pessoa", "pessoas")}, ${plural(c.acessos, "acesso", "acessos")}` })))}` : ""}
-    </section>
-
-    <section class="card fade" style="animation-delay:.11s">
-      <div class="eyebrow">O que mais usam</div><div class="h2">Telas mais abertas</div>
-      ${p.telas.length ? barrasH(p.telas.map(x => ({ rotulo: NOME_TELA[x.tela] || x.tela, valor: x.acessos, dica: `${NOME_TELA[x.tela] || x.tela}: ${plural(x.acessos, "acesso", "acessos")} de ${plural(x.pessoas, "pessoa", "pessoas")}` })))
-        : `<div class="empty">Ainda sem acessos registrados.</div>`}
-    </section>
-
-    <section class="card fade" style="animation-delay:.13s">
-      <div class="eyebrow">Por onde entram</div><div class="h2">Aparelhos</div>
-      ${p.aparelhos.length ? barrasH(p.aparelhos.map(x => ({ rotulo: NOME_APARELHO[x.dispositivo] || x.dispositivo, valor: x.pessoas, dica: `${NOME_APARELHO[x.dispositivo] || x.dispositivo}: ${plural(x.pessoas, "pessoa", "pessoas")}` })))
-        : `<div class="empty">Ainda sem acessos registrados.</div>`}
-    </section>
-
-    <section class="card fade" style="animation-delay:.15s">
-      <div class="eyebrow">Engajamento no período</div><div class="h2">O que o pessoal fez</div>
-      <div class="kpis">
-        ${kpi(num(t.confirmacoes), "Confirmações de presença")}
-        ${kpi(num(t.votos), "Votos dados")}
-        ${kpi(num(t.partidas), "Partidas registradas")}
-        ${kpi(num(t.gols), "Gols registrados")}
-      </div>
-    </section>
-
-    <section class="card fade" style="animation-delay:.17s">
-      <div class="eyebrow">Peladas</div><div class="h2">Quem mais usa</div>
-      <div class="tabela-rolar"><table class="tabela">
-        <thead><tr><th>Pelada</th><th>Jogadores</th><th>Ativos 7d</th><th>Acessos</th><th>Partidas</th><th>Última</th></tr></thead>
-        <tbody>${p.peladas.map(x => `<tr><td>${esc(x.nome)}</td><td>${num(x.jogadores)}</td><td>${num(x.ativos7)}</td><td>${num(x.acessos)}</td><td>${num(x.partidas)}</td><td>${x.ultima_partida ? dataCurta(x.ultima_partida) : "–"}</td></tr>`).join("")}</tbody>
-      </table></div>
-    </section>`;
-  desenharMapa(p.cidades);
-}
-
-// mapa com calor por cidade (Leaflet + OpenStreetMap), carregado só quando o painel abre
-let leafletPronto = null;
-const carregarScript = src => new Promise((ok, erro) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = erro; document.head.appendChild(s); });
-const carregarLeaflet = () => leafletPronto || (leafletPronto = (async () => {
-  document.head.insertAdjacentHTML("beforeend", `<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">`);
-  await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js");
-  await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js");
-})().catch(e => { leafletPronto = null; throw e; }));
-async function desenharMapa(cidades){
-  const el = document.getElementById("mapaUso");
-  if (!el) return;
-  const pontos = cidades.filter(c => c.lat != null && c.lon != null);
-  if (!pontos.length) { el.innerHTML = `<div class="empty">Ainda sem localização. Aparece aqui conforme as pessoas abrem o app.</div>`; return; }
-  try { await carregarLeaflet(); } catch { el.innerHTML = `<div class="empty">Não deu pra carregar o mapa agora.</div>`; return; }
-  if (!document.body.contains(el)) return;
-  try {
-  const mapa = L.map(el, { scrollWheelZoom: false });
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
-  const max = Math.max(...pontos.map(c => c.pessoas));
-  L.heatLayer(pontos.map(c => [Number(c.lat), Number(c.lon), 0.35 + 0.65 * c.pessoas / max]),
-    { radius: 30, blur: 24, maxZoom: 10, gradient: { 0.3: RAMPA_USO[0], 0.6: RAMPA_USO[2], 1: RAMPA_USO[4] } }).addTo(mapa);
-  pontos.forEach(c => L.circleMarker([Number(c.lat), Number(c.lon)], { radius: 6, weight: 2, color: "#fff", fillColor: RAMPA_USO[4], fillOpacity: .95 })
-    .bindTooltip(`${esc(c.cidade)}${c.estado ? ` · ${esc(c.estado)}` : ""}: ${plural(c.pessoas, "pessoa", "pessoas")}, ${plural(c.acessos, "acesso", "acessos")}`).addTo(mapa));
-  mapa.fitBounds(L.latLngBounds(pontos.map(c => [Number(c.lat), Number(c.lon)])).pad(0.5), { maxZoom: 9 });
-  } catch (e) { console.error(e); el.innerHTML = `<div class="empty">Não deu pra desenhar o mapa agora.</div>`; }
-}
-
 // dica dos gráficos: passar o mouse, tocar ou focar com o teclado
 function mostrarDica(el){
   const d = document.getElementById("dica");
@@ -3596,7 +3441,6 @@ const ACOES = {
     aviso("Modo fantasma: você vê o que o jogador vê. Nada é gravado.");
   }),
   sairFantasma: () => ACOES.painel(),
-  dashDias: el => { state.dashDias = Number(el.dataset.valor); renderDashboard(); },
   menuPerfil: () => { state.menuPerfil = !state.menuPerfil; renderMenuPerfil(); },
   irPara: el => { location.hash = el.dataset.hash; },
   copiar: () => run(async () => { await navigator.clipboard.writeText(linkConvite()); aviso("Link de convite copiado!"); }),

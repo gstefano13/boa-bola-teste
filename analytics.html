@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anotou · Analytics</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="theme-color" content="#0E0E0E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<style>
+/* Página independente do app: só analytics, só o dev.
+   Mesmas cores do Anotou, mas organizada como painel de dados (tela larga primeiro). */
+:root{
+  --bg:#F4F4F4; --card:#FFFFFF; --ink:#0E0E0E; --ink-2:#5C5C5C; --ink-3:#8C8C8C;
+  --line:#E6E6E6; --soft:#F6F6F6; --lime:#B5F23D; --lime-soft:#E9FBC5;
+  --mono:'Geist Mono',ui-monospace,monospace;
+  --r:12px; --shadow:0 1px 0 rgba(0,0,0,.03), 0 8px 24px -12px rgba(0,0,0,.08);
+  --side:232px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;letter-spacing:-.01em;overflow-x:hidden}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+a{color:inherit}
+.faixa-teste{position:sticky;top:0;z-index:50;background:#F59E0B;color:#0E0E0E;text-align:center;font-size:12px;font-weight:600;padding:5px 12px}
+
+/* estrutura: barra lateral escura + área de dados */
+.app{display:grid;grid-template-columns:var(--side) minmax(0,1fr);min-height:100vh}
+.side{background:var(--ink);color:#fff;padding:22px 16px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:21px;letter-spacing:-.04em}
+.brand svg{width:22px;height:22px}
+.brand small{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;background:var(--lime);color:var(--ink);border-radius:6px;padding:2px 6px;margin-left:2px}
+.side h6{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8C8C8C;margin-bottom:8px}
+.periodo{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:#1F1F1F;border-radius:10px;padding:3px}
+.periodo button{font-size:12.5px;font-weight:500;padding:7px 0;border-radius:8px;color:#BDBDBD}
+.periodo button.on{background:var(--lime);color:var(--ink)}
+.secoes{list-style:none;display:flex;flex-direction:column;gap:2px}
+.secoes a{display:block;text-decoration:none;font-size:13.5px;color:#D6D6D6;padding:7px 10px;border-radius:8px}
+.secoes a:hover{background:#1F1F1F;color:#fff}
+.side .pe{margin-top:auto;display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:#BDBDBD}
+.side .pe b{color:#fff;font-weight:600;font-size:13px;display:block}
+.side .pe .btn-s{text-align:left;color:#D6D6D6;text-decoration:underline;text-underline-offset:3px}
+
+.main{padding:26px 28px 60px;min-width:0}
+.cab{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.cab h1{font-size:28px;font-weight:600;letter-spacing:-.035em;line-height:1.1}
+.cab p{font-size:13px;color:var(--ink-2);margin-top:4px}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--ink);color:#fff;font-size:13px;font-weight:500;padding:9px 14px;border-radius:999px}
+.btn.ghost{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+
+.grade{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 20px;min-width:0;scroll-margin-top:16px}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c7{grid-column:span 7}.c6{grid-column:span 6}.c5{grid-column:span 5}.c4{grid-column:span 4}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.h2{font-size:17px;font-weight:600;letter-spacing:-.02em;margin-top:2px}
+.note{font-size:12.5px;color:var(--ink-2);margin-top:6px;line-height:1.45}
+.hint{font-size:12.5px;background:var(--lime-soft);border-radius:10px;padding:10px 12px;margin-top:12px;line-height:1.45}
+.empty{font-size:13px;color:var(--ink-3);text-align:center;padding:28px 10px}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.kpi{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px;min-width:0}
+.kpi span{display:block;font-size:12.5px;color:var(--ink-2)}
+.kpi b{display:block;font-family:var(--mono);font-size:30px;font-weight:500;letter-spacing:-.03em;line-height:1.15;margin-top:6px}
+.kpi small{display:block;font-size:11.5px;color:var(--ink-3);margin-top:4px;line-height:1.35}
+.kpi.destaque{background:var(--ink);color:#fff}
+.kpi.destaque span,.kpi.destaque small{color:#BDBDBD}
+.kpi.destaque b{color:var(--lime)}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.mini div{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.mini b{display:block;font-family:var(--mono);font-size:20px;font-weight:500}
+.mini span{display:block;font-size:12px;color:var(--ink-2);margin-top:2px}
+
+/* gráficos */
+.eixo-y{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:14px}
+.barras{display:flex;align-items:flex-end;gap:2px;height:170px;border-bottom:1px solid var(--line);margin-top:4px;position:relative}
+.barras .media{position:absolute;left:0;right:0;border-top:1px dashed var(--ink-3);pointer-events:none}
+.barras .media em{position:absolute;right:0;top:-17px;font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--card);padding:0 4px}
+.barra{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;outline:none}
+.barra i{display:block;width:100%;background:#4C8212;border-radius:3px 3px 0 0}
+.barra:hover i,.barra:focus i{background:#234406}
+.eixo-x{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:6px}
+.hbarras{list-style:none;margin-top:12px}
+.hbarras li{display:grid;grid-template-columns:minmax(0,10em) minmax(0,1fr) 3.2em 3em;align-items:center;gap:10px;padding:6px 0;outline:none}
+.hbarras .r{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbarras .t{height:10px;background:var(--soft);border-radius:4px;overflow:hidden}
+.hbarras .t i{display:block;height:100%;background:#4C8212;border-radius:0 4px 4px 0}
+.hbarras b{font-family:var(--mono);font-weight:500;font-size:13px;text-align:right}
+.hbarras s{font-family:var(--mono);text-decoration:none;font-size:11.5px;color:var(--ink-3);text-align:right}
+.calor{display:grid;grid-template-columns:2.6em repeat(24,minmax(0,1fr));gap:3px;margin-top:14px;align-items:center}
+.calor i{display:block;aspect-ratio:1.6;border-radius:3px;outline:none}
+.calor i:hover,.calor i:focus{box-shadow:0 0 0 2px var(--ink)}
+.calor .dl{font-size:11.5px;color:var(--ink-2)}
+.calor .hl{font-family:var(--mono);font-size:10px;color:var(--ink-3);white-space:nowrap}
+.legenda-calor{display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3);margin-top:12px}
+.legenda-calor i{width:14px;height:14px;border-radius:3px;display:inline-block}
+.legenda-calor span{margin:0 4px}
+.mapa-uso{height:360px;border-radius:10px;overflow:hidden;margin-top:12px;background:var(--soft);border:1px solid var(--line)}
+.mapa-uso .empty{padding-top:150px}
+
+/* tabela */
+.tabela-rolar{overflow-x:auto;margin-top:12px}
+.tabela{width:100%;border-collapse:collapse;font-size:13px}
+.tabela th{text-align:right;font-weight:500;color:var(--ink-2);font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+.tabela th:first-child,.tabela td:first-child{text-align:left;padding-left:0}
+.tabela th.on{color:var(--ink)}
+.tabela th.on::after{content:" ↓"}
+.tabela td{padding:10px;border-bottom:1px solid var(--line);font-family:var(--mono);white-space:nowrap;text-align:right}
+.tabela td:first-child{font-family:inherit;white-space:normal;min-width:10em;font-weight:500}
+.tabela tr:hover td{background:var(--soft)}
+
+.dica{position:fixed;z-index:60;background:var(--ink);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;pointer-events:none;max-width:260px}
+.dica[hidden]{display:none}
+
+/* login */
+.login{min-height:100vh;display:grid;place-items:center;padding:16px}
+.login form{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:28px;width:min(100%,380px);display:flex;flex-direction:column;gap:12px}
+.login h1{font-size:24px;font-weight:600;letter-spacing:-.03em}
+.login label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:500}
+.login input{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--soft)}
+.login .btn{justify-content:center;padding:12px;font-size:14px}
+.msg{font-size:13px;color:#B42318;min-height:1em}
+
+/* celular: barra lateral vira topo */
+@media(max-width:960px){
+  .c8,.c7,.c6,.c5,.c4{grid-column:span 12}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;height:auto;padding:16px;gap:14px}
+  .secoes{flex-direction:row;overflow-x:auto;gap:4px}
+  .secoes a{white-space:nowrap;background:#1F1F1F}
+  .side .pe{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:center}
+  .main{padding:18px 16px 40px}
+  .mini{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi b{font-size:24px}
+  .calor{gap:1px;grid-template-columns:2.4em repeat(24,minmax(0,1fr))}
+  .calor i{aspect-ratio:1}
+  .hbarras li{grid-template-columns:minmax(0,7.5em) minmax(0,1fr) 2.8em 2.8em;gap:8px}
+}
+</style>
+</head>
+<body>
+<div id="raiz"><div class="empty" style="padding-top:40vh">Carregando…</div></div>
+<div class="dica" id="dica" role="tooltip" hidden></div>
+
+<script>
+/* Mesmo esquema do app: anotoumeugol.com usa o banco oficial, qualquer outro endereço usa o de testes. */
+const BANCOS = {
+  oficial: { url: "https://rsqyxsjqdkgkcwexbkfi.supabase.co", key: "sb_publishable_VsGcdzuHKXG3cVMuBact2g_VnTJEFgB" },
+  teste: { url: "https://obhrxutnpgknvuqqlfvb.supabase.co", key: "sb_publishable_NcsSb-8kpIf0ZnUOxMMhKg_1ck11vdd" }
+};
+const OFICIAL = /(^|\.)anotoumeugol\.com$/.test(location.hostname);
+const { url, key } = OFICIAL ? BANCOS.oficial : BANCOS.teste;
+if (!OFICIAL) document.body.insertAdjacentHTML("afterbegin", `<div class="faixa-teste">Ambiente de testes · banco de testes</div>`);
+// mesma sessão do app (mesmo endereço): quem já entrou como dev no app abre direto aqui
+const sb = supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
+
+const raiz = document.getElementById("raiz");
+const ok = r => { if (r.error) throw r.error; return r.data; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = n => Number(n || 0).toLocaleString("pt-BR");
+const dec = n => Number(n || 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+const pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : "–";
+const plural = (n, um, varios) => `${num(n)} ${n === 1 ? um : varios}`;
+const dataCurta = s => { const [, m, d] = s.split("-"); return `${d}/${m}`; };
+const dataBr = s => { const [y, m, d] = s.slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
+const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const diaSemana = s => DIAS_CURTOS[new Date(s + "T12:00").getDay()];
+const NOME_TELA = { inicio: "Início", jogadores: "Jogadores", rankings: "Rankings", pelada: "Pelada", times: "Times da noite", cartola: "Cartola",
+  mercado: "Mercado", liga: "Liga", pontuacao: "Pontuação", regras: "Regras", pospelada: "Registrar pelada" };
+const NOME_APARELHO = { iphone: "iPhone", android: "Android", computador: "Computador", outro: "Outro" };
+const RAMPA = ["#86BD3F", "#65A01F", "#4C8212", "#36640A", "#234406"];
+const ler = k => { try { return localStorage.getItem("anotou." + k); } catch { return null; } };
+const gravar = (k, v) => { try { localStorage.setItem("anotou." + k, v); } catch {} };
+const LOGO = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#B5F23D"/><path fill="#0E0E0E" d="M11.1 17.085C10.44 17.085 9.858 16.971 9.354 16.743C8.862 16.503 8.478 16.179 8.202 15.771C7.926 15.351 7.788 14.859 7.788 14.295C7.788 13.767 7.902 13.293 8.13 12.873C8.37 12.453 8.736 12.099 9.228 11.811C9.72 11.523 10.338 11.319 11.082 11.199L14.466 10.641V12.243L11.478 12.765C10.938 12.861 10.542 13.035 10.29 13.287C10.038 13.527 9.912 13.839 9.912 14.223C9.912 14.595 10.05 14.901 10.326 15.141C10.614 15.369 10.98 15.483 11.424 15.483C11.976 15.483 12.456 15.363 12.864 15.123C13.284 14.883 13.608 14.565 13.836 14.169C14.064 13.761 14.178 13.311 14.178 12.819V10.317C14.178 9.837 13.998 9.447 13.638 9.147C13.29 8.835 12.822 8.679 12.234 8.679C11.694 8.679 11.22 8.823 10.812 9.111C10.416 9.387 10.122 9.747 9.93 10.191L8.238 9.345C8.418 8.865 8.712 8.445 9.12 8.085C9.528 7.713 10.002 7.425 10.542 7.221C11.094 7.017 11.676 6.915 12.288 6.915C13.056 6.915 13.734 7.059 14.322 7.347C14.922 7.635 15.384 8.037 15.708 8.553C16.044 9.057 16.212 9.645 16.212 10.317V16.869H14.268V15.105L14.682 15.159C14.454 15.555 14.16 15.897 13.8 16.185C13.452 16.473 13.05 16.695 12.594 16.851C12.15 17.007 11.652 17.085 11.1 17.085Z"/></svg>`;
+
+const st = { user: null, nome: "", dias: Number(ler("analytics.dias")) || 30, dados: null, ordem: "acessos" };
+
+/* ===================== ENTRADA (só dev) ===================== */
+function telaLogin(msg = ""){
+  raiz.innerHTML = `
+    <div class="login"><form id="fLogin">
+      <div class="brand" style="color:var(--ink)">${LOGO}anotou<small>Analytics</small></div>
+      <h1>Entrar como dev</h1>
+      <p class="note" style="margin-top:-6px">Só a conta de dev abre esta página.</p>
+      <label>E-mail<input name="email" type="email" autocomplete="email" value="${esc(ler("email") || "")}" required></label>
+      <label>Senha<input name="senha" type="password" autocomplete="current-password" required></label>
+      <button class="btn">Entrar</button>
+      <p class="msg" id="msg">${esc(msg)}</p>
+    </form></div>`;
+  document.getElementById("fLogin").addEventListener("submit", async e => {
+    e.preventDefault();
+    const d = new FormData(e.target);
+    document.getElementById("msg").textContent = "Entrando…";
+    const r = await sb.auth.signInWithPassword({ email: d.get("email"), password: d.get("senha") });
+    if (r.error) { document.getElementById("msg").textContent = r.error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : r.error.message; return; }
+    gravar("email", d.get("email"));
+    iniciar(r.data.user);
+  });
+}
+
+async function iniciar(user){
+  st.user = user;
+  try {
+    const [devs, perfil] = await Promise.all([
+      sb.from("devs").select("jogador_id").eq("jogador_id", user.id).then(ok),
+      sb.from("jogadores").select("nome, apelido").eq("id", user.id).maybeSingle().then(ok)
+    ]);
+    if (!devs.length) { await sb.auth.signOut(); return telaLogin("Essa conta não é de dev. O analytics é só pro dev."); }
+    st.nome = (perfil && (perfil.apelido || perfil.nome)) || user.email;
+  } catch (e) { return telaLogin(e.message || String(e)); }
+  carregar();
+}
+
+async function carregar(){
+  if (!st.dados) raiz.innerHTML = `<div class="empty" style="padding-top:40vh">Carregando os números…</div>`;
+  try { st.dados = ok(await sb.rpc("painel_uso", { dias: st.dias })); }
+  catch (e) { raiz.innerHTML = `<div class="empty" style="padding-top:40vh">${esc(e.message || e)}</div>`; return; }
+  desenhar();
+}
+
+/* ===================== GRÁFICOS ===================== */
+function barrasDia(lista, campo, dica){
+  if (!lista.length) return `<div class="empty">Sem dias no período.</div>`;
+  const max = Math.max(1, ...lista.map(x => x[campo]));
+  const media = lista.reduce((s, x) => s + x[campo], 0) / lista.length;
+  return `
+    <div class="eixo-y">${num(max)}</div>
+    <div class="barras">
+      ${media ? `<div class="media" style="bottom:${100 * media / max}%"><em>média ${dec(media)}</em></div>` : ""}
+      ${lista.map(x => `<div class="barra" tabindex="0" data-dica="${esc(dica(x))}"><i style="height:${x[campo] ? Math.max(3, 100 * x[campo] / max) : 0}%"></i></div>`).join("")}
+    </div>
+    <div class="eixo-x"><span>${dataCurta(lista[0].dia)}</span>${lista.length > 2 ? `<span>${dataCurta(lista[Math.floor(lista.length / 2)].dia)}</span>` : ""}<span>${dataCurta(lista[lista.length - 1].dia)}</span></div>`;
+}
+
+// barras horizontais: rótulo · barra · número · % do total
+function barrasH(itens){
+  if (!itens.length) return `<div class="empty">Ainda sem acessos registrados.</div>`;
+  const max = Math.max(1, ...itens.map(i => i.valor)), total = itens.reduce((s, i) => s + i.valor, 0);
+  return `<ul class="hbarras">${itens.map(i => `
+    <li tabindex="0" data-dica="${esc(i.dica)}"><span class="r">${esc(i.rotulo)}</span><span class="t"><i style="width:${Math.max(i.valor ? 2 : 0, 100 * i.valor / max)}%"></i></span><b>${num(i.valor)}</b><s>${pct(i.valor, total)}</s></li>`).join("")}</ul>`;
+}
+
+function calorHorario(celulas){
+  const m = new Map(celulas.map(c => [c.d * 24 + c.h, c]));
+  const max = Math.max(1, ...celulas.map(c => c.acessos));
+  const cor = n => n ? RAMPA[Math.min(RAMPA.length - 1, Math.ceil(n / max * RAMPA.length) - 1)] : "#F1F2EE";
+  return `
+    <div class="calor" role="img" aria-label="Acessos por dia da semana e hora">
+      ${DIAS_CURTOS.map((nome, d) => `<span class="dl">${nome}</span>${Array.from({ length: 24 }, (_, h) => {
+        const c = m.get(d * 24 + h) || { acessos: 0, pessoas: 0 };
+        return `<i tabindex="0" style="background:${cor(c.acessos)}" data-dica="${nome} ${h}h · ${plural(c.acessos, "acesso", "acessos")} · ${plural(c.pessoas, "pessoa", "pessoas")}"></i>`;
+      }).join("")}`).join("")}
+      <span></span>${Array.from({ length: 24 }, (_, h) => `<span class="hl">${h % 3 ? "" : h + "h"}</span>`).join("")}
+    </div>
+    <div class="legenda-calor"><span>nenhum</span><i style="background:#F1F2EE"></i><span>menos</span>${RAMPA.map(c => `<i style="background:${c}"></i>`).join("")}<span>mais</span></div>`;
+}
+
+// horário e dia de pico, tirados do mapa de calor
+function picos(celulas){
+  const porHora = Array(24).fill(0), porDia = Array(7).fill(0);
+  celulas.forEach(c => { porHora[c.h] += c.acessos; porDia[c.d] += c.acessos; });
+  const h = porHora.indexOf(Math.max(...porHora)), d = porDia.indexOf(Math.max(...porDia));
+  return celulas.some(c => c.acessos) ? { hora: `${h}h`, dia: DIAS_CURTOS[d] } : { hora: "–", dia: "–" };
+}
+
+const COLUNAS = [["nome", "Pelada"], ["jogadores", "Jogadores"], ["ativos7", "Ativos 7d"], ["engaj", "% ativos"], ["acessos", "Acessos"], ["partidas", "Partidas"], ["ultima_partida", "Última partida"]];
+function tabelaPeladas(lista){
+  if (!lista.length) return `<div class="empty">Nenhuma pelada ainda.</div>`;
+  const linhas = lista.map(x => ({ ...x, engaj: x.jogadores ? x.ativos7 / x.jogadores : 0 }));
+  const k = st.ordem;
+  linhas.sort((a, b) => k === "nome" ? String(a.nome).localeCompare(b.nome, "pt-BR") : (b[k] ?? "") > (a[k] ?? "") ? 1 : (b[k] ?? "") < (a[k] ?? "") ? -1 : 0);
+  return `<div class="tabela-rolar"><table class="tabela">
+    <thead><tr>${COLUNAS.map(([c, r]) => `<th data-ordem="${c}" class="${c === k ? "on" : ""}">${r}</th>`).join("")}</tr></thead>
+    <tbody>${linhas.map(x => `<tr><td>${esc(x.nome)}</td><td>${num(x.jogadores)}</td><td>${num(x.ativos7)}</td><td>${pct(x.ativos7, x.jogadores)}</td><td>${num(x.acessos)}</td><td>${num(x.partidas)}</td><td>${x.ultima_partida ? dataBr(x.ultima_partida) : "–"}</td></tr>`).join("")}</tbody>
+  </table></div>`;
+}
+
+/* ===================== PÁGINA ===================== */
+const SECOES = [["visao", "Visão geral"], ["uso", "Uso por dia"], ["horarios", "Horários"], ["onde", "Onde usam"], ["telas", "Telas e aparelhos"], ["engajamento", "Engajamento"], ["peladas", "Peladas"]];
+
+function desenhar(){
+  const p = st.dados, t = p.totais, a = p.ativos, semDados = !t.acessos;
+  const diario = p.diario || [];
+  const pessoasDia = diario.length ? diario.reduce((s, x) => s + x.pessoas, 0) / diario.length : 0;
+  const pico = picos(p.calor || []);
+  const melhorDia = diario.reduce((m, x) => x.pessoas > (m ? m.pessoas : -1) ? x : m, null);
+  raiz.innerHTML = `
+  <div class="app">
+    <aside class="side">
+      <div class="brand">${LOGO}anotou<small>Analytics</small></div>
+      <div><h6>Período</h6>
+        <div class="periodo">${[7, 30, 90].map(n => `<button data-dias="${n}" class="${st.dias === n ? "on" : ""}">${n} dias</button>`).join("")}</div>
+      </div>
+      <nav><h6>Seções</h6><ul class="secoes">${SECOES.map(([id, r]) => `<li><a href="#${id}">${r}</a></li>`).join("")}</ul></nav>
+      <div class="pe">
+        <div><b>${esc(st.nome)}</b>Dev</div>
+        <a class="btn-s" href="./">Abrir o app</a>
+        <button class="btn-s" id="sair">Sair</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="cab" id="visao">
+        <div><h1>Uso do Anotou</h1>
+          <p>${dataBr(p.desde)} a ${dataBr(p.ate)} · horário de Brasília · dev e modo fantasma fora da conta</p></div>
+        <button class="btn ghost" id="atualizar">Atualizar</button>
+      </div>
+      ${semDados ? `<p class="hint" style="margin:0 0 14px">O registro de acessos começou há pouco: uso, horários, cidades e aparelhos aparecem conforme as pessoas abrem o app. Contas, peladas e partidas já mostram o histórico.</p>` : ""}
+
+      <div class="kpis">
+        <div class="kpi destaque"><span>Ativos em 7 dias</span><b>${num(a.d7)}</b><small>${num(a.hoje)} hoje · ${num(a.d30)} em 30 dias</small></div>
+        <div class="kpi"><span>Retenção semanal</span><b>${pct(a.voltaram, a.semana_passada)}</b><small>${num(a.voltaram)} de ${num(a.semana_passada)} da semana passada voltaram</small></div>
+        <div class="kpi"><span>Frequência (hoje / 30 dias)</span><b>${pct(a.hoje, a.d30)}</b><small>Dos ativos no mês, quantos abriram hoje</small></div>
+        <div class="kpi"><span>Instalaram o app</span><b>${pct(p.instalado, t.pessoas)}</b><small>${num(p.instalado)} de ${num(t.pessoas)} que usaram</small></div>
+        <div class="kpi"><span>Contas criadas</span><b>${num(t.contas)}</b><small>+${num(t.novas_contas)} no período · ${num(t.perfis_pendentes)} esperando cadastro</small></div>
+        <div class="kpi"><span>Peladas ativas</span><b>${num(t.peladas_ativas)}</b><small>+${num(t.peladas_novas)} no período</small></div>
+        <div class="kpi"><span>Acessos no período</span><b>${num(t.acessos)}</b><small>${t.pessoas ? dec(t.acessos / t.pessoas) : "–"} por pessoa</small></div>
+        <div class="kpi"><span>Partidas no período</span><b>${num(t.partidas)}</b><small>${num(t.gols)} gols · ${t.partidas ? dec(t.gols / t.partidas) : "–"} por partida</small></div>
+      </div>
+
+      <div class="grade" style="margin-top:14px">
+        <section class="card c8" id="uso">
+          <div class="eyebrow">Uso por dia</div><div class="h2">Pessoas que abriram o app</div>
+          ${barrasDia(diario, "pessoas", x => `${diaSemana(x.dia)} ${dataCurta(x.dia)} · ${plural(x.pessoas, "pessoa", "pessoas")} · ${plural(x.acessos, "acesso", "acessos")}`)}
+          <div class="mini">
+            <div><b>${dec(pessoasDia)}</b><span>Pessoas por dia, média</span></div>
+            <div><b>${melhorDia && melhorDia.pessoas ? num(melhorDia.pessoas) : "–"}</b><span>Melhor dia${melhorDia && melhorDia.pessoas ? ` · ${dataCurta(melhorDia.dia)}` : ""}</span></div>
+            <div><b>${pico.dia}</b><span>Dia da semana mais forte</span></div>
+            <div><b>${pico.hora}</b><span>Horário de pico</span></div>
+          </div>
+        </section>
+        <section class="card c4">
+          <div class="eyebrow">Crescimento</div><div class="h2">Novas contas por dia</div>
+          ${barrasDia(diario, "novas", x => `${diaSemana(x.dia)} ${dataCurta(x.dia)} · ${plural(x.novas, "conta nova", "contas novas")}`)}
+          <p class="note">${plural(t.novas_contas, "conta nova", "contas novas")} em ${st.dias} dias.</p>
+        </section>
+
+        <section class="card c12" id="horarios">
+          <div class="eyebrow">Mapa de calor</div><div class="h2">Quando o pessoal usa</div>
+          <p class="note">Cada quadrado é uma hora da semana. Quanto mais escuro, mais acessos.</p>
+          ${calorHorario(p.calor || [])}
+        </section>
+
+        <section class="card c7" id="onde">
+          <div class="eyebrow">Mapa de calor</div><div class="h2">De onde o pessoal usa</div>
+          <p class="note">Cidade aproximada pela conexão de internet de cada aparelho.</p>
+          <div class="mapa-uso" id="mapaUso"></div>
+        </section>
+        <section class="card c5">
+          <div class="eyebrow">Cidades</div><div class="h2">${plural(p.cidades.length, "cidade", "cidades")}</div>
+          ${barrasH(p.cidades.slice(0, 12).map(c => ({ rotulo: `${c.cidade}${c.estado ? ` · ${c.estado}` : ""}`, valor: c.pessoas,
+            dica: `${c.cidade}: ${plural(c.pessoas, "pessoa", "pessoas")}, ${plural(c.acessos, "acesso", "acessos")}` })))}
+        </section>
+
+        <section class="card c6" id="telas">
+          <div class="eyebrow">O que mais usam</div><div class="h2">Telas mais abertas</div>
+          ${barrasH(p.telas.map(x => ({ rotulo: NOME_TELA[x.tela] || x.tela, valor: x.acessos, dica: `${NOME_TELA[x.tela] || x.tela}: ${plural(x.acessos, "acesso", "acessos")} de ${plural(x.pessoas, "pessoa", "pessoas")}` })))}
+        </section>
+        <section class="card c6">
+          <div class="eyebrow">Por onde entram</div><div class="h2">Aparelhos</div>
+          ${barrasH(p.aparelhos.map(x => ({ rotulo: NOME_APARELHO[x.dispositivo] || x.dispositivo, valor: x.pessoas, dica: `${NOME_APARELHO[x.dispositivo] || x.dispositivo}: ${plural(x.pessoas, "pessoa", "pessoas")}` })))}
+        </section>
+
+        <section class="card c12" id="engajamento">
+          <div class="eyebrow">Engajamento no período</div><div class="h2">O que o pessoal fez</div>
+          <div class="mini">
+            <div><b>${num(t.confirmacoes)}</b><span>Confirmações de presença</span></div>
+            <div><b>${num(t.votos)}</b><span>Votos dados</span></div>
+            <div><b>${num(t.partidas)}</b><span>Partidas registradas</span></div>
+            <div><b>${num(t.gols)}</b><span>Gols registrados</span></div>
+          </div>
+        </section>
+
+        <section class="card c12" id="peladas">
+          <div class="eyebrow">Peladas</div><div class="h2">Quem mais usa</div>
+          <p class="note">Toque no título da coluna pra ordenar.</p>
+          <div id="tabPeladas">${tabelaPeladas(p.peladas || [])}</div>
+        </section>
+      </div>
+    </main>
+  </div>`;
+  desenharMapa(p.cidades || []);
+}
+
+/* mapa com calor por cidade (Leaflet + OpenStreetMap), carregado só quando precisa */
+let leafletPronto = null;
+const carregarScript = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+const carregarLeaflet = () => leafletPronto || (leafletPronto = (async () => {
+  document.head.insertAdjacentHTML("beforeend", `<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">`);
+  await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js");
+  await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js");
+})().catch(e => { leafletPronto = null; throw e; }));
+async function desenharMapa(cidades){
+  const el = document.getElementById("mapaUso");
+  if (!el) return;
+  const pontos = cidades.filter(c => c.lat != null && c.lon != null);
+  if (!pontos.length) { el.innerHTML = `<div class="empty">Ainda sem localização. Aparece aqui conforme as pessoas abrem o app.</div>`; return; }
+  try { await carregarLeaflet(); } catch { el.innerHTML = `<div class="empty">Não deu pra carregar o mapa agora.</div>`; return; }
+  if (!document.body.contains(el)) return;
+  try {
+    const mapa = L.map(el, { scrollWheelZoom: false });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
+    const max = Math.max(...pontos.map(c => c.pessoas));
+    L.heatLayer(pontos.map(c => [Number(c.lat), Number(c.lon), 0.35 + 0.65 * c.pessoas / max]),
+      { radius: 30, blur: 24, maxZoom: 10, gradient: { 0.3: RAMPA[0], 0.6: RAMPA[2], 1: RAMPA[4] } }).addTo(mapa);
+    pontos.forEach(c => L.circleMarker([Number(c.lat), Number(c.lon)], { radius: 6, weight: 2, color: "#fff", fillColor: RAMPA[4], fillOpacity: .95 })
+      .bindTooltip(`${esc(c.cidade)}${c.estado ? ` · ${esc(c.estado)}` : ""}: ${plural(c.pessoas, "pessoa", "pessoas")}, ${plural(c.acessos, "acesso", "acessos")}`).addTo(mapa));
+    mapa.fitBounds(L.latLngBounds(pontos.map(c => [Number(c.lat), Number(c.lon)])).pad(0.5), { maxZoom: 9 });
+  } catch { el.innerHTML = `<div class="empty">Não deu pra desenhar o mapa agora.</div>`; }
+}
+
+/* ===================== EVENTOS ===================== */
+document.addEventListener("click", async e => {
+  const per = e.target.closest("[data-dias]");
+  if (per) { st.dias = Number(per.dataset.dias); gravar("analytics.dias", st.dias); return carregar(); }
+  const th = e.target.closest("[data-ordem]");
+  if (th) { st.ordem = th.dataset.ordem; document.getElementById("tabPeladas").innerHTML = tabelaPeladas(st.dados.peladas || []); return; }
+  if (e.target.closest("#atualizar")) return carregar();
+  if (e.target.closest("#sair")) { await sb.auth.signOut(); st.dados = null; telaLogin(); }
+});
+
+// dica ao passar o dedo/mouse nas barras e no mapa de calor
+function mostrarDica(alvo){
+  const d = document.getElementById("dica");
+  if (!alvo) { d.hidden = true; return; }
+  d.textContent = alvo.dataset.dica;
+  d.hidden = false;
+  const r = alvo.getBoundingClientRect(), w = d.offsetWidth;
+  d.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px";
+  d.style.top = Math.max(8, r.top - d.offsetHeight - 8) + "px";
+}
+document.addEventListener("pointerover", e => mostrarDica(e.target.closest && e.target.closest("[data-dica]")));
+document.addEventListener("focusin", e => mostrarDica(e.target.closest && e.target.closest("[data-dica]")));
+addEventListener("scroll", () => { document.getElementById("dica").hidden = true; }, { passive: true });
+
+sb.auth.getSession().then(({ data }) => data.session ? iniciar(data.session.user) : telaLogin());
+</script>
+</body>
+</html>
