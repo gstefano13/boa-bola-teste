@@ -957,7 +957,8 @@ function renderLogin(){
       <button class="btn block">Entrar</button>
       <p class="msg" id="loginMsg"></p>
     </form>
-    <p class="note center">Primeira vez? <a class="lnk" data-act="login" data-modo="codigo">Entrar com o código da pelada</a></p>`;
+    <p class="note center">Primeira vez? <a class="lnk" data-act="login" data-modo="codigo">Entrar com o código da pelada</a></p>
+    ${OFICIAL ? "" : `<p class="note center" style="margin-top:8px">Site de testes: <a class="lnk" data-act="entrarTeste">Entrar como Presidente Teste</a></p>`}`;
   view.innerHTML = `<section class="card fade" style="margin-top:min(14vh,110px)">${corpo}</section>`;
 }
 
@@ -3428,7 +3429,11 @@ const ACOES = {
   painel: () => run(async () => {
     if (app.fantasma) { app.user = app.realUser; app.realUser = null; app.fantasma = false; state.modal = null; }
     app.modoDev = true; app.pelada = null; await carregarTodas(); location.hash = "peladas"; route(); }),
-  sair: () => run(async () => { ok(await sb.auth.signOut()); }),
+  // site de testes: quem sai de propósito vai pra tela de login (pra entrar com outra conta, como a de dev)
+  sair: () => run(async () => { gravar("saiu", "1"); state.login = "senha"; ok(await sb.auth.signOut()); }),
+  entrarTeste: () => { gravar("saiu", null); gravar("convite", "TESTE8-PRES");
+    sb.auth.signInAnonymously({ options: { data: { nome: "Presidente Teste", apelido: "Presida", guia_visto: true } } })
+      .then(r => { if (r.error) aviso(traduz(r.error)); }); },
   // entra como fantasma: começa vendo como o primeiro mensalista da pelada
   fantasma: el => run(async () => {
     const membros = ok(await sb.from("membros").select("jogador_id, tipo").eq("pelada_id", el.dataset.id));
@@ -4107,7 +4112,7 @@ sb.auth.onAuthStateChange((evento, session) => {
     else if (!session && (app.user || evento === "INITIAL_SESSION")) {
       Object.assign(app, vazio());
       // site de testes: sem tela de login. Entra sozinho (usuário anônimo) como presidente da pelada de teste
-      if (!OFICIAL) {
+      if (!OFICIAL && !ler("saiu")) {
         gravar("convite", "TESTE8-PRES");
         sb.auth.signInAnonymously({ options: { data: { nome: "Presidente Teste", apelido: "Presida", guia_visto: true } } })
           .then(r => { if (r.error) view.innerHTML = `<section class="card"><div class="empty">Não deu pra entrar no teste: ${esc(traduz(r.error))}</div></section>`; });
