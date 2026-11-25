@@ -212,7 +212,8 @@ async function iniciar(user){
       sb.from("devs").select("jogador_id").eq("jogador_id", user.id).then(ok),
       sb.from("jogadores").select("nome, apelido").eq("id", user.id).maybeSingle().then(ok)
     ]);
-    if (!devs.length) { await sb.auth.signOut(); return telaLogin("Essa conta não é de dev. O analytics é só pro dev."); }
+    // não desloga: a sessão é a mesma do app e a pessoa continuaria logada lá
+    if (!devs.length) return telaLogin(`Você está logado no app como ${user.email}, que não é dev. Entre com a conta de dev.`);
     st.nome = (perfil && (perfil.apelido || perfil.nome)) || user.email;
   } catch (e) { return telaLogin(e.message || String(e)); }
   carregar();
