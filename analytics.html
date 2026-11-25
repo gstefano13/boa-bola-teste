@@ -158,8 +158,8 @@ const BANCOS = {
 const OFICIAL = /(^|\.)anotoumeugol\.com$/.test(location.hostname);
 const { url, key } = OFICIAL ? BANCOS.oficial : BANCOS.teste;
 if (!OFICIAL) document.body.insertAdjacentHTML("afterbegin", `<div class="faixa-teste">Ambiente de testes · banco de testes</div>`);
-// mesma sessão do app (mesmo endereço): quem já entrou como dev no app abre direto aqui
-const sb = supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
+// login próprio, separado do app: entrar ou sair aqui não mexe na conta logada no app
+const sb = supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "anotou-analytics" } });
 
 const raiz = document.getElementById("raiz");
 const ok = r => { if (r.error) throw r.error; return r.data; };
@@ -188,7 +188,7 @@ function telaLogin(msg = ""){
     <div class="login"><form id="fLogin">
       <div class="brand" style="color:var(--ink)">${LOGO}anotou<small>Analytics</small></div>
       <h1>Entrar como dev</h1>
-      <p class="note" style="margin-top:-6px">Só a conta de dev abre esta página.</p>
+      <p class="note" style="margin-top:-6px">Só a conta de dev abre esta página. O login aqui é separado do app.</p>
       <label>E-mail<input name="email" type="email" autocomplete="email" value="${esc(ler("email") || "")}" required></label>
       <label>Senha<input name="senha" type="password" autocomplete="current-password" required></label>
       <button class="btn">Entrar</button>
@@ -213,7 +213,7 @@ async function iniciar(user){
       sb.from("jogadores").select("nome, apelido").eq("id", user.id).maybeSingle().then(ok)
     ]);
     // não desloga: a sessão é a mesma do app e a pessoa continuaria logada lá
-    if (!devs.length) return telaLogin(`Você está logado no app como ${user.email}, que não é dev. Entre com a conta de dev.`);
+    if (!devs.length) { await sb.auth.signOut({ scope: "local" }); return telaLogin("Essa conta não é de dev. O analytics é só pro dev."); }
     st.nome = (perfil && (perfil.apelido || perfil.nome)) || user.email;
   } catch (e) { return telaLogin(e.message || String(e)); }
   carregar();
@@ -424,7 +424,7 @@ document.addEventListener("click", async e => {
   const th = e.target.closest("[data-ordem]");
   if (th) { st.ordem = th.dataset.ordem; document.getElementById("tabPeladas").innerHTML = tabelaPeladas(st.dados.peladas || []); return; }
   if (e.target.closest("#atualizar")) return carregar();
-  if (e.target.closest("#sair")) { await sb.auth.signOut(); st.dados = null; telaLogin(); }
+  if (e.target.closest("#sair")) { await sb.auth.signOut({ scope: "local" }); st.dados = null; telaLogin(); }
 });
 
 // dica ao passar o dedo/mouse nas barras e no mapa de calor

@@ -851,10 +851,11 @@ function renderMenuPerfil(){
   el.innerHTML = `
     <div class="quem"><b>${esc(app.perfil.nome || nomeExibido())}</b><span>${esc(app.user.email || "")}</span></div>
     ${app.fantasma ? `<button role="menuitem" data-act="sairFantasma">👻 Sair do modo fantasma</button>` : ""}
-    ${app.fantasma ? "" : app.modoDev ? `<button role="menuitem" data-act="irPara" data-hash="ajustes">Ajustes</button><a role="menuitem" href="analytics.html">Analytics</a>`
+    ${app.fantasma ? "" : app.modoDev ? `<button role="menuitem" data-act="irPara" data-hash="ajustes">Ajustes</button>`
       : app.pelada ? `<button role="menuitem" data-act="irPara" data-hash="pelada">Minha pelada</button>` : ""}
     ${!app.modoDev && !app.fantasma && (app.peladas.length > 1 || app.dev) ? `<button role="menuitem" data-act="trocar">Trocar de pelada</button>` : ""}
     ${app.dev && !app.modoDev && !app.fantasma ? `<button role="menuitem" data-act="painel">Painel do dev</button>` : ""}
+    ${app.dev || !OFICIAL ? `<a role="menuitem" href="analytics.html">Analytics</a>` : ""}
     <button class="sair" role="menuitem" data-act="sair">Sair da conta</button>`;
 }
 
